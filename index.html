@@ -1,0 +1,940 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>HexSnake: Dimension Fold</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<canvas id="gameCanvas"></canvas>
+<canvas id="transCanvas" style="position:fixed;inset:0;width:100%;height:100%;z-index:300;pointer-events:none;opacity:0;display:none;"></canvas>
+<canvas id="minimap3d" width="160" height="120"></canvas>
+
+<!-- HUD -->
+<div id="hud">
+  <div class="hSeg" style="flex-direction:column;align-items:flex-start;gap:1px">
+    <span class="hLab">分数</span>
+    <span class="hVal" id="hScore">0</span>
+  </div>
+  <div class="hSeg" style="flex-direction:column;align-items:flex-start;gap:1px">
+    <span class="hLab">等级</span>
+    <span class="hVal" id="hLevel">1</span>
+  </div>
+  <div class="hSeg" style="gap:10px">
+    <div style="display:flex;flex-direction:column;gap:2px">
+      <span class="hLab">经验</span>
+      <div class="hBar" style="width:90px"><div class="hBarFill" id="xpFill" style="width:0%"></div></div>
+    </div>
+    <span style="font-family:'Share Tech Mono',monospace;font-size:12px;color:#4A4A48" id="hXP">0/5</span>
+  </div>
+  <div class="hSeg" style="gap:10px">
+    <div style="display:flex;flex-direction:column;gap:2px">
+      <span class="hLab">激光CD</span>
+      <div class="hBar" style="width:70px"><div class="hBarFill" id="lasFill" style="width:100%"></div></div>
+    </div>
+  </div>
+  <div class="hSeg" style="flex-direction:column;align-items:flex-start;gap:1px">
+    <span class="hLab">长度</span>
+    <span class="hVal" id="hLen">1</span>
+  </div>
+  <div class="hSeg" style="flex-direction:column;align-items:flex-start;gap:1px">
+    <span class="hLab">速度</span>
+    <span class="hVal" id="hSpd">×1.00</span>
+  </div>
+  <div class="hSeg" style="flex-direction:column;align-items:flex-start;gap:1px" id="hComboSeg">
+    <span class="hLab">连击</span>
+    <span class="hVal" id="hCombo" style="color:#E8640A">×1.0</span>
+  </div>
+  <div class="hSeg hRight" style="flex-direction:column;align-items:flex-end;gap:1px">
+    <span class="hLab">任务时间</span>
+    <span class="hVal" id="hTime">0s</span>
+  </div>
+  <button id="muteBtn" onclick="toggleMute()" style="
+    margin-left:12px;background:none;border:1px solid #2E2E2A;color:#7A7670;
+    font-family:'Share Tech Mono',monospace;font-size:12px;letter-spacing:1px;
+    padding:4px 10px;cursor:pointer;pointer-events:all;
+    transition:color .15s,border-color .15s;
+  " title="切换静音 [M]">♪ ON</button>
+</div>
+
+<div id="effectBar"></div>
+<div id="flashMsg"></div>
+
+<!-- ══ START SCREEN — CASSETTE FUTURISM ══ -->
+<div id="startScreen" class="overlay">
+  <canvas id="startBg"></canvas>
+
+  <!-- VHS Side Bars -->
+  <div class="s-vhsbar left">
+    <span class="svr"></span><span class="svy"></span><span class="svc"></span>
+    <span class="svg_"></span><span class="svw"></span><span class="svk"></span><span class="svr"></span>
+  </div>
+  <div class="s-vhsbar right">
+    <span class="svk"></span><span class="svw"></span><span class="svg_"></span>
+    <span class="svc"></span><span class="svy"></span><span class="svr"></span><span class="svk"></span>
+  </div>
+
+  <!-- Top Status Bar -->
+  <div class="s-topbar" id="topBar">
+    <div class="s-tb-logo">
+      <span class="s-tb-inf">∞</span>
+      <div class="s-tb-name">
+        <div class="s-tb-n1">RHINE LAB</div>
+        <div class="s-tb-n2">COMBAT DIV · UNIT Ω</div>
+      </div>
+    </div>
+    <div class="s-tb-rec"><span class="s-tb-recdot"></span>REC</div>
+    <div class="s-tb-mid">
+      <span>MISSION · <span class="accent">HX-2047</span></span>
+      <span>PROTOCOL · <span class="accent">HEXSNAKE v2.1</span></span>
+      <span id="s-clock">TIME · --:--:--</span>
+    </div>
+    <div class="s-tb-hi" id="sHiScore">BEST: —</div>
+  </div>
+
+  <!-- Floating settings button (shared across themes) -->
+  <button class="cfg-float-btn" id="cfgBtn" onclick="openSettings()" title="系统设置">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="3"/>
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+    </svg>
+  </button>
+
+  <!-- ── MAIN SPLIT LAYOUT ── -->
+  <div class="s-main">
+
+    <!-- ════ LEFT: White Mission Briefing Cabin ════ -->
+    <div class="s-panel-white" id="panelWhite">
+
+      <!-- Rhine Lab Logo (green on white) -->
+      <div class="s-wlogo" data-reveal="1">
+        <span class="s-wlogo-inf">∞</span>
+        <div class="s-wlogo-txt">
+          <span class="s-wlogo-t1">RHINE LAB</span>
+          <span class="s-wlogo-t2">COMBAT DIVISION · HEXSNAKE PROTOCOL</span>
+        </div>
+      </div>
+
+      <!-- Giant Title with Glitch -->
+      <div class="s-wtitle" data-reveal="2">
+        <span class="s-wtitle-hex">HEX</span>
+        <span class="s-wtitle-snake">SNAKE</span>
+      </div>
+
+      <!-- ★ Prominent Tagline -->
+      <div class="s-hero-tagline" data-reveal="3">六边形蛇类战略游戏</div>
+      <div class="s-hero-sub" data-reveal="3">猎杀敌蛇 · 进化升级 · 称霸战场</div>
+
+      <!-- VHS 4-Color Bar -->
+      <div class="s-vhs-bar" data-reveal="4"></div>
+
+      <!-- Cassette Tape Component (compact) -->
+      <div class="s-cassette-wrap" data-reveal="5">
+        <div class="s-cassette">
+          <div class="s-cass-label">
+            <span class="s-cass-l1">RHINE LAB</span>
+            <span class="s-cass-l2">HX-2047</span>
+          </div>
+          <div class="s-cass-stripe"></div>
+          <div class="s-cass-window">
+            <div class="s-reel"></div>
+            <div class="s-reel r2"></div>
+          </div>
+          <div class="s-cass-screw tl"></div>
+          <div class="s-cass-screw tr"></div>
+          <div class="s-cass-screw bl"></div>
+          <div class="s-cass-screw br"></div>
+        </div>
+        <div class="s-cassette-side">
+          <div class="s-cas-meta">SIDE A · 45:00</div>
+          <div class="s-cas-meta">HEXSNAKE v2.1</div>
+        </div>
+      </div>
+
+      <!-- Feature Badges -->
+      <div class="s-badges" data-reveal="6">
+        <span class="s-badge r">● 实时对战</span>
+        <span class="s-badge g">◈ 进化树</span>
+        <span class="s-badge c">◆ A* AI</span>
+        <span class="s-badge y">⚡ 连击</span>
+        <span class="s-badge w">♪ 音效</span>
+      </div>
+
+      <!-- Mode Toggle — Cassette A/B Switch -->
+      <div class="s-mode-wrap" data-reveal="7">
+        <div class="s-mode-label">SELECT MODE</div>
+        <div class="s-mode-switch" id="modeSwitch" onclick="toggleGameMode()">
+          <div class="s-mode-slider"><div class="s-mode-slider-inner"></div></div>
+          <div class="s-mode-side active" id="modeSideA">
+            <span class="s-mode-side-code">SIDE · A</span>
+            <span class="s-mode-side-name">CLASSIC</span>
+          </div>
+          <div class="s-mode-side" id="modeSideB">
+            <span class="s-mode-side-code">SIDE · B</span>
+            <span class="s-mode-side-name">3D CUBE</span>
+          </div>
+          <div class="s-mode-screw tl"></div>
+          <div class="s-mode-screw tr"></div>
+          <div class="s-mode-screw bl"></div>
+          <div class="s-mode-screw br"></div>
+        </div>
+      </div>
+
+      <!-- Start Button -->
+      <div class="s-start-area" data-reveal="7">
+        <button class="s-startBtn" id="launchBtn" onclick="launchGame()">▶ 开始任务</button>
+        <button class="s-startBtn-mute" onclick="toggleMute()">♪ 音效</button>
+      </div>
+
+      <!-- Light Crack Effect -->
+      <div class="s-light-crack"></div>
+      <div class="s-crack-particles">
+        <div class="s-crack-particle"></div>
+        <div class="s-crack-particle"></div>
+        <div class="s-crack-particle"></div>
+        <div class="s-crack-particle"></div>
+        <div class="s-crack-particle"></div>
+        <div class="s-crack-particle"></div>
+      </div>
+
+    </div>
+
+    <!-- ════ RIGHT: Dark Control Panels ════ -->
+    <div class="s-panel-dark" id="panelDark">
+
+      <!-- TOP: Live Game Preview -->
+      <div class="s-crt-display">
+        <canvas id="previewCanvas" style="position:absolute;inset:0;width:100%;height:100%;z-index:5;"></canvas>
+        <div class="s-crt-label">LIVE · COMBAT PREVIEW — AUTO PILOT</div>
+        <div class="s-crt-corner tl"></div>
+        <div class="s-crt-corner tr"></div>
+        <div class="s-crt-corner bl"></div>
+        <div class="s-crt-corner br"></div>
+        <!-- Live data strip -->
+        <div class="s-crt-data">
+          <div class="s-crt-data-item">SCORE: <span id="demo-score">0</span></div>
+          <div class="s-crt-data-item">LENGTH: <span id="demo-len">1</span></div>
+          <div class="s-crt-data-item">KILLS: <span id="demo-kills">0</span></div>
+          <div class="s-crt-data-item">STATUS: <span id="demo-status" style="color:var(--phosphor)">HUNTING</span></div>
+        </div>
+      </div>
+
+      <!-- BOTTOM: Controls + Mission Cards -->
+      <div class="s-control-panel">
+
+        <!-- Controls -->
+        <div class="s-controls-area">
+          <div class="s-seclabel">OPERATION MANUAL</div>
+          <table class="s-keytable">
+            <tr>
+              <td><span class="s-kb">↑↓←→ / WASD</span></td>
+              <td class="s-kdesc">移动方向</td>
+            </tr>
+            <tr>
+              <td><span class="s-kb">J</span></td>
+              <td class="s-kdesc">发射激光攻击</td>
+            </tr>
+            <tr>
+              <td><span class="s-kb" style="border-bottom-color:var(--phosphor)">● XP球</span></td>
+              <td class="s-kdesc">收集触发升级</td>
+            </tr>
+            <tr>
+              <td><span class="s-kb" style="border-bottom-color:var(--amber)">▲ 加速</span></td>
+              <td class="s-kdesc">速度倍率叠加</td>
+            </tr>
+            <tr>
+              <td><span class="s-kb" style="border-bottom-color:var(--vhs-c)">▼ 减速</span></td>
+              <td class="s-kdesc">速度倍率降低</td>
+            </tr>
+            <tr>
+              <td><span class="s-kb">M</span></td>
+              <td class="s-kdesc">BGM 开关</td>
+            </tr>
+          </table>
+        </div>
+
+        <div class="s-cp-div"></div>
+
+        <!-- Mission System Cards -->
+        <div class="s-cards-area">
+          <div class="s-seclabel">MISSION SYSTEMS</div>
+          <div class="s-card">
+            <div class="s-card-lstrip"></div>
+            <div class="s-card-head">
+              <span class="s-card-icon">⚡</span>
+              <span class="s-card-title">连击倍率</span>
+              <span class="s-card-id">SYS-01</span>
+            </div>
+            <div class="s-card-desc">连续吃食物 ×1→×4 倍率累积</div>
+          </div>
+          <div class="s-card g">
+            <div class="s-card-lstrip"></div>
+            <div class="s-card-head">
+              <span class="s-card-icon">◈</span>
+              <span class="s-card-title">进化树系统</span>
+              <span class="s-card-id">SYS-02</span>
+            </div>
+            <div class="s-card-desc">升级解锁10种进化路径</div>
+          </div>
+          <div class="s-card r">
+            <div class="s-card-lstrip"></div>
+            <div class="s-card-head">
+              <span class="s-card-icon">◉</span>
+              <span class="s-card-title">敌蛇 AI</span>
+              <span class="s-card-id">SYS-03</span>
+            </div>
+            <div class="s-card-desc">A* 寻路 + 子弹攻击系统</div>
+          </div>
+          <div class="s-card c">
+            <div class="s-card-lstrip"></div>
+            <div class="s-card-head">
+              <span class="s-card-icon">◫</span>
+              <span class="s-card-title">动态地图</span>
+              <span class="s-card-id">SYS-04</span>
+            </div>
+            <div class="s-card-desc">升级扩张 · 墙体随机阻断</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ══ SPRING FESTIVAL LAYOUT (赛博春节) ══ -->
+  <div class="sp-main" id="spMain">
+
+    <!-- Left: Traditional panel -->
+    <div class="sp-panel-left">
+      <canvas id="spBg" class="sp-bg-canvas"></canvas>
+      <div class="sp-left-inner">
+
+        <!-- Lantern -->
+        <div class="sp-lantern-wrap">
+          <canvas id="lanternCanvas" width="110" height="170"></canvas>
+        </div>
+
+        <!-- Game title -->
+        <div class="sp-title-block">
+          <div class="sp-title-hex">HEX</div>
+          <div class="sp-title-snake">SNAKE</div>
+          <div class="sp-title-sub">赛博春节 · CYBER SPRING</div>
+        </div>
+
+        <!-- Spring color bar -->
+        <div class="sp-color-bar">
+          <span class="sp-cb-r"></span>
+          <span class="sp-cb-g"></span>
+          <span class="sp-cb-w"></span>
+          <span class="sp-cb-k"></span>
+        </div>
+
+        <!-- Couplet -->
+        <div class="sp-couplet">
+          <span>年运亨通</span>
+          <span class="sp-couplet-mid">·</span>
+          <span>马到成功</span>
+        </div>
+
+        <!-- Action buttons -->
+        <div class="sp-actions">
+          <button class="sp-startBtn" id="spLaunchBtn" onclick="launchGame()">▶ 开始游戏</button>
+          <button class="sp-muteBtn" onclick="toggleMute()">♪ 音效</button>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Right: Preview + Controls -->
+    <div class="sp-panel-right">
+
+      <!-- Top: Window with fireworks -->
+      <div class="sp-preview-area sp-window-wrap">
+        <canvas id="spWindowCanvas"></canvas>
+        <div class="sp-window-label">窗外 · FIREWORKS</div>
+      </div>
+
+      <!-- Bottom: Mode switch + Cards -->
+      <div class="sp-control-area">
+
+        <!-- Controls -->
+        <div class="sp-controls-area">
+          <div class="sp-seclabel">操作说明 · CONTROLS</div>
+          <table class="sp-keytable">
+            <tr>
+              <td><span class="sp-kb">↑↓←→ / WASD</span></td>
+              <td class="sp-kdesc">移动方向</td>
+            </tr>
+            <tr>
+              <td><span class="sp-kb">J</span></td>
+              <td class="sp-kdesc">发射激光</td>
+            </tr>
+            <tr>
+              <td><span class="sp-kb">▲ 加速</span></td>
+              <td class="sp-kdesc">速度倍率叠加</td>
+            </tr>
+            <tr>
+              <td><span class="sp-kb">▼ 减速</span></td>
+              <td class="sp-kdesc">速度倍率降低</td>
+            </tr>
+            <tr>
+              <td><span class="sp-kb">M</span></td>
+              <td class="sp-kdesc">BGM 开关</td>
+            </tr>
+          </table>
+        </div>
+
+        <!-- Mode selection -->
+        <div class="sp-mode-label">SELECT · 选择模式</div>
+        <div class="sp-mode-row">
+          <button class="sp-mode-btn active" id="spModeA" onclick="setGameMode('2d')">
+            <span class="sp-mode-code">SIDE · A</span>
+            <span class="sp-mode-name">CLASSIC</span>
+          </button>
+          <div class="sp-mode-div"></div>
+          <button class="sp-mode-btn" id="spModeB" onclick="setGameMode('3d')">
+            <span class="sp-mode-code">SIDE · B</span>
+            <span class="sp-mode-name">3D CUBE</span>
+          </button>
+        </div>
+
+        <!-- Info cards -->
+        <div class="sp-cards-row">
+          <div class="sp-card">
+            <div class="sp-card-icon">◈</div>
+            <div class="sp-card-body">
+              <div class="sp-card-title">进化系统</div>
+              <div class="sp-card-desc">升级能力 · 解锁技能</div>
+            </div>
+          </div>
+          <div class="sp-card">
+            <div class="sp-card-icon">⚡</div>
+            <div class="sp-card-body">
+              <div class="sp-card-title">智能对手</div>
+              <div class="sp-card-desc">AI 追踪 · 动态威胁</div>
+            </div>
+          </div>
+          <div class="sp-card">
+            <div class="sp-card-icon">★</div>
+            <div class="sp-card-body">
+              <div class="sp-card-title">连击系统</div>
+              <div class="sp-card-desc">COMBO · 积分倍率</div>
+            </div>
+          </div>
+          <div class="sp-card">
+            <div class="sp-card-icon">◫</div>
+            <div class="sp-card-body">
+              <div class="sp-card-title">动态地图</div>
+              <div class="sp-card-desc">升级扩张 · 墙体阻断</div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Bottom Info Bar -->
+  <div class="s-bottombar" id="bottomBar">
+    <span class="s-ver">BUILD RHINE·2025 · HX-2047 · INTERNAL USE ONLY · CLASSIFIED</span>
+  </div>
+
+</div>
+
+<!-- Settings Panel -->
+<div id="cfgScreen">
+  <div class="cfg-panel">
+    <div class="cfg-header">
+      <span class="cfg-title">⚙ SYSTEM CONFIG · 系统配置</span>
+      <button class="cfg-close" onclick="closeSettings()">ESC ×</button>
+    </div>
+    <div class="cfg-body">
+      <div class="cfg-sidebar">
+        <div class="cfg-tab active" id="cfgTabTheme" onclick="switchCfgTab('theme')">
+          <span class="cfg-tab-code">THEME</span>
+          <span class="cfg-tab-name">主题</span>
+        </div>
+        <div class="cfg-tab" id="cfgTabVol" onclick="switchCfgTab('volume')">
+          <span class="cfg-tab-code">VOLUME</span>
+          <span class="cfg-tab-name">音量</span>
+        </div>
+        <div class="cfg-tab" id="cfgTabDiff" onclick="switchCfgTab('difficulty')">
+          <span class="cfg-tab-code">DIFFICULTY</span>
+          <span class="cfg-tab-name">难度</span>
+        </div>
+        <div class="cfg-mem-toggle" id="cfgMemToggle" onclick="toggleCfgMem()">
+          <span class="cfg-mem-dot" id="cfgMemDot"></span>
+          <span class="cfg-mem-label">记忆设置</span>
+        </div>
+      </div>
+      <div class="cfg-content">
+        <!-- Theme pane -->
+        <div class="cfg-pane" id="cfgPaneTheme">
+          <div class="cfg-section-title">◈ 主题选择  THEME SELECT</div>
+          <div class="cfg-theme-cards">
+            <div class="cfg-theme-card active" data-theme-id="cassette"
+                 onclick="switchTheme('cassette')"
+                 onmouseenter="previewTheme('cassette')"
+                 onmouseleave="previewTheme(getTheme().id)">
+              <div class="cfg-card-glow"></div>
+              <span class="cfg-theme-dot">●</span>
+              <div class="cfg-theme-info">
+                <span class="cfg-theme-name">未来磁带</span>
+                <span class="cfg-theme-code">CASS · FUTUR · 01</span>
+              </div>
+              <canvas class="cfg-theme-preview" width="80" height="44"></canvas>
+            </div>
+            <div class="cfg-theme-card" data-theme-id="spring"
+                 onclick="switchTheme('spring')"
+                 onmouseenter="previewTheme('spring')"
+                 onmouseleave="previewTheme(getTheme().id)">
+              <div class="cfg-card-glow"></div>
+              <span class="cfg-theme-dot">○</span>
+              <div class="cfg-theme-info">
+                <span class="cfg-theme-name">赛博春节</span>
+                <span class="cfg-theme-code">CASS · SPRING · 02</span>
+              </div>
+              <canvas class="cfg-theme-preview" width="80" height="44"></canvas>
+            </div>
+          </div>
+        </div>
+        <!-- Volume pane -->
+        <div class="cfg-pane" id="cfgPaneVolume" style="display:none">
+          <div class="cfg-section-title">◈ 音量调节  VOLUME CONTROL</div>
+          <div class="cfg-vol-rows">
+            <div class="cfg-vol-row">
+              <div class="cfg-vol-label">
+                <span class="cfg-vol-key">BGM</span>
+                <span class="cfg-vol-sub">背景音乐</span>
+              </div>
+              <div class="cfg-vol-slider-wrap">
+                <input type="range" class="cfg-slider" id="cfgBgmSlider" min="0" max="100" value="32" oninput="onBgmSlider(this)">
+                <span class="cfg-vol-pct" id="cfgBgmPct">32%</span>
+              </div>
+            </div>
+            <div class="cfg-vol-row">
+              <div class="cfg-vol-label">
+                <span class="cfg-vol-key">SFX</span>
+                <span class="cfg-vol-sub">音效</span>
+              </div>
+              <div class="cfg-vol-slider-wrap">
+                <input type="range" class="cfg-slider" id="cfgSfxSlider" min="0" max="100" value="55" oninput="onSfxSlider(this)">
+                <span class="cfg-vol-pct" id="cfgSfxPct">55%</span>
+              </div>
+            </div>
+            <div class="cfg-vol-note">┈ 注：静音按钮（♪）会覆盖音量设置</div>
+          </div>
+        </div>
+        <!-- Difficulty pane -->
+        <div class="cfg-pane" id="cfgPaneDifficulty" style="display:none">
+          <div class="cfg-section-title">◈ 难度选择  DIFFICULTY SELECT</div>
+          <div class="cfg-diff-cards">
+            <!-- EASY -->
+            <div class="cfg-diff-card" data-diff="easy" onclick="selectDifficulty('easy')"
+                 onmouseenter="showDiffDetail('easy')" onmouseleave="hideDiffDetail()">
+              <div class="cfg-card-glow"></div>
+              <span class="cfg-diff-dot">●</span>
+              <div class="cfg-diff-info">
+                <span class="cfg-diff-name">简单 · EASY</span>
+                <span class="cfg-diff-desc">练习模式，无压力体验</span>
+                <span class="cfg-diff-code">DIFF · EASY · 01</span>
+              </div>
+            </div>
+            <!-- NORMAL -->
+            <div class="cfg-diff-card active" data-diff="normal" onclick="selectDifficulty('normal')"
+                 onmouseenter="showDiffDetail('normal')" onmouseleave="hideDiffDetail()">
+              <div class="cfg-card-glow"></div>
+              <span class="cfg-diff-dot">●</span>
+              <div class="cfg-diff-info">
+                <span class="cfg-diff-name">标准 · NORMAL</span>
+                <span class="cfg-diff-desc">推荐难度，均衡体验</span>
+                <span class="cfg-diff-code">DIFF · NORM · 02</span>
+              </div>
+            </div>
+            <!-- HARD -->
+            <div class="cfg-diff-card" data-diff="hard" onclick="selectDifficulty('hard')"
+                 onmouseenter="showDiffDetail('hard')" onmouseleave="hideDiffDetail()">
+              <div class="cfg-card-glow"></div>
+              <span class="cfg-diff-dot">●</span>
+              <div class="cfg-diff-info">
+                <span class="cfg-diff-name">困难 · HARD</span>
+                <span class="cfg-diff-desc">高挑战，XP+25%</span>
+                <span class="cfg-diff-code">DIFF · HARD · 03</span>
+              </div>
+            </div>
+            <!-- HELL -->
+            <div class="cfg-diff-card" data-diff="hell" onclick="selectDifficulty('hell')"
+                 onmouseenter="showDiffDetail('hell')" onmouseleave="hideDiffDetail()">
+              <div class="cfg-card-glow"></div>
+              <span class="cfg-diff-dot">●</span>
+              <div class="cfg-diff-info">
+                <span class="cfg-diff-name">地狱 · HELL</span>
+                <span class="cfg-diff-desc">极限挑战，XP+50%</span>
+                <span class="cfg-diff-code">DIFF · HELL · 04</span>
+              </div>
+            </div>
+            <!-- NIGHTMARE (locked) -->
+            <div class="cfg-diff-card locked" data-diff="nightmare" title="暂未解锁"
+                 onmouseenter="showDiffDetail('nightmare')" onmouseleave="hideDiffDetail()">
+              <div class="cfg-card-glow"></div>
+              <span class="cfg-diff-dot">○</span>
+              <span class="cfg-diff-lock">🔒</span>
+              <div class="cfg-diff-info">
+                <span class="cfg-diff-name">??? · NIGHTMARE</span>
+                <span class="cfg-diff-desc">??? · LOCKED</span>
+                <span class="cfg-diff-code">DIFF · NGHT · ??</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Evolution Tree -->
+<div id="evoScreen" class="overlay">
+  <div class="evoHeader">
+    <div>
+      <div style="font-family:'Share Tech Mono',monospace;font-size:11px;color:rgba(232,100,10,0.5);letter-spacing:3px;margin-bottom:5px">RHINE LAB · EVOLUTION PROTOCOL v2.1</div>
+      <div class="evoTitle">干员进化</div>
+    </div>
+    <div class="evoHint">点击亮节点选择 · 确认后升级生效<br><span style="color:rgba(232,100,10,0.4)">[F2] 调试升级</span></div>
+  </div>
+  <canvas id="evoCanvas" width="820" height="480"></canvas>
+  <div class="evoWarn" id="evoWarn"></div>
+  <button class="bigBtn" style="margin-top:12px" onclick="confirmUpgrade()">确认升级</button>
+</div>
+
+<!-- Countdown Overlay -->
+<div id="countdownOverlay" style="
+  display:none;position:fixed;inset:0;z-index:200;
+  background:rgba(4,3,1,0.88);
+  display:none;align-items:center;justify-content:center;flex-direction:column;gap:18px;
+  font-family:'Barlow Condensed',sans-serif;
+">
+  <div style="font-family:'Share Tech Mono',monospace;font-size:14px;letter-spacing:4px;color:rgba(0,255,136,0.55)">UPGRADE INSTALLED · RESUMING IN</div>
+  <div id="countdownNum" style="
+    font-size:140px;font-weight:900;line-height:1;letter-spacing:-4px;
+    color:var(--amber);text-shadow:0 0 60px rgba(255,184,48,0.5),0 0 120px rgba(255,184,48,0.15);
+  ">3</div>
+  <div id="countdownUpgName" style="font-size:22px;font-weight:700;letter-spacing:4px;color:rgba(232,100,10,0.8)"></div>
+</div>
+
+<!-- ═══ DIFFICULTY DETAIL PANEL (Slides in from right) ═══ -->
+<div class="diff-detail-panel" id="diffDetailPanel">
+  <div class="diff-detail-inner">
+    <div class="diff-detail-header">
+      <span class="diff-detail-title">威胁等级详情</span>
+      <span class="diff-detail-sub">THREAT DETAILS</span>
+    </div>
+    <div class="diff-detail-content">
+      <div class="diff-detail-row">
+        <span class="diff-detail-label">敌蛇初始数量</span>
+        <span class="diff-detail-value" id="detail-initial">0</span>
+      </div>
+      <div class="diff-detail-row">
+        <span class="diff-detail-label">敌蛇生成间隔</span>
+        <span class="diff-detail-value" id="detail-spawn">60s</span>
+      </div>
+      <div class="diff-detail-row">
+        <span class="diff-detail-label">威胁成长间隔</span>
+        <span class="diff-detail-value" id="detail-growth">60s</span>
+      </div>
+      <div class="diff-detail-row">
+        <span class="diff-detail-label">最大敌蛇数</span>
+        <span class="diff-detail-value" id="detail-max">3</span>
+      </div>
+      <div class="diff-detail-row">
+        <span class="diff-detail-label">子弹发射 CD</span>
+        <span class="diff-detail-value" id="detail-bullet">10s</span>
+      </div>
+      <div class="diff-detail-row">
+        <span class="diff-detail-label">敌蛇移速</span>
+        <span class="diff-detail-value" id="detail-speed">400ms</span>
+      </div>
+      <div class="diff-detail-row">
+        <span class="diff-detail-label">XP 奖励</span>
+        <span class="diff-detail-value" id="detail-xp">+0%</span>
+      </div>
+      <div class="diff-detail-row">
+        <span class="diff-detail-label">威胁等级上限</span>
+        <span class="diff-detail-value" id="detail-cap">Lv.5</span>
+      </div>
+    </div>
+    <div class="diff-radar-section">
+      <div class="diff-radar-title">THREAT PROFILE</div>
+      <canvas id="diffRadarCanvas" width="240" height="240"></canvas>
+    </div>
+  </div>
+</div>
+
+<!-- Game Over — CRT Signal Recovery -->
+<div id="goScreen" class="overlay">
+  <canvas id="goBg"></canvas>
+  <div class="sCorner tl" style="z-index:3"></div>
+  <div class="sCorner tr" style="z-index:3;border-color:#C8281E"></div>
+  <div class="sCorner bl" style="z-index:3;border-color:#5C9B2E"></div>
+  <div class="sCorner br" style="z-index:3"></div>
+
+  <!-- CRT Boot Line -->
+  <div class="go-bootline" id="goBootline"></div>
+
+  <div class="go-crt" id="goCrt">
+    <!-- Language Toggle -->
+    <button class="go-lang-toggle" id="goLangBtn" onclick="toggleGoLang()">EN / 中</button>
+
+    <!-- Header -->
+    <div class="go-header go-reveal">
+      <div>
+        <div class="go-status" data-i18n="go_status">SIGNAL RECOVERED · MISSION LOG</div>
+        <div class="go-title">GAME <span>OVER</span></div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
+        <div class="go-record-tag new" id="goNewRecord" style="display:none" data-i18n="go_newrec">★ NEW RECORD</div>
+        <div class="go-record-tag normal" id="goNoRecord" style="display:none" data-i18n="go_norec">MISSION FAILED</div>
+        <div id="goTimeTag" style="font-family:'Share Tech Mono',monospace;font-size:12px;color:#5A5650;letter-spacing:2px"></div>
+      </div>
+    </div>
+
+    <!-- Body -->
+    <div class="go-body">
+      <!-- Left: Big Score -->
+      <div class="go-left">
+        <div class="go-score-label go-reveal" data-i18n="go_scorelbl">FINAL SCORE</div>
+        <div class="go-score-num go-reveal" id="goScore">0</div>
+        <div class="go-hiscore-line go-reveal"><span data-i18n="go_best">BEST:</span> <span id="goHiScore">0</span></div>
+
+        <div class="go-datalines">
+          <div class="go-dline go-reveal">
+            <span data-i18n="go_level">LEVEL REACHED</span>
+            <span class="go-dline-val amber" id="goLevel">1</span>
+          </div>
+          <div class="go-dline go-reveal">
+            <span data-i18n="go_time">SURVIVAL TIME</span>
+            <span class="go-dline-val" id="goTime">0s</span>
+          </div>
+          <div class="go-dline go-reveal">
+            <span data-i18n="go_length">FINAL LENGTH</span>
+            <span class="go-dline-val" id="goLen">1</span>
+          </div>
+          <div class="go-dline go-reveal">
+            <span data-i18n="go_combo">MAX COMBO</span>
+            <span class="go-dline-val amber" id="goCombo">0</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right: Terminal Log -->
+      <div class="go-right">
+        <div class="go-terminal-header go-reveal" data-i18n="go_logheader">COMBAT LOG · DETAILED REPORT</div>
+
+        <div class="go-tline go-reveal">
+          <div class="go-tline-row">
+            <span class="t-key" data-i18n="go_kills">ENEMY.KILLS</span>
+            <span class="t-dot"></span>
+            <span class="t-val" id="goKills">0</span>
+          </div>
+        </div>
+        <div class="go-tline go-reveal">
+          <div class="go-tline-row">
+            <span class="t-key" data-i18n="go_laser">LASER.HITS</span>
+            <span class="t-dot"></span>
+            <span class="t-val" id="goLasHits">0</span>
+          </div>
+        </div>
+        <div class="go-tline go-reveal">
+          <div class="go-tline-row">
+            <span class="t-key" data-i18n="go_bullet">BULLET.DMG</span>
+            <span class="t-dot"></span>
+            <span class="t-val" id="goBulletHits">—</span>
+          </div>
+        </div>
+        <div class="go-tline go-reveal">
+          <div class="go-tline-row">
+            <span class="t-key" data-i18n="go_statusk">STATUS</span>
+            <span class="t-dot"></span>
+            <span class="t-val" style="color:#C8281E" data-i18n="go_statusv">TERMINATED</span>
+          </div>
+        </div>
+        <div class="go-tline go-reveal">
+          <div class="go-tline-row">
+            <span class="t-key" data-i18n="go_logend">LOG.END</span>
+            <span class="t-dot"></span>
+            <span class="t-val">OK</span>
+            <span class="go-cursor"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="go-footer go-reveal">
+      <div class="go-cmd"><kbd>ENTER</kbd> <span data-i18n="go_quick">快速重开</span></div>
+      <button class="bigBtn ghost" id="homeBtn" onclick="launchHome(this)" data-i18n="go_home">← 返回主界面</button>
+      <button class="bigBtn" id="redeployBtn" onclick="launchRedeploy(this)" data-i18n="go_redeploy">▶ 重新部署</button>
+    </div>
+  </div>
+</div>
+
+<!-- Game Over — Spring Festival Scroll (赛博春节专属) -->
+<div id="spGoScreen" class="overlay">
+  <!-- Background gradient -->
+  <div class="sp-go-bg"></div>
+
+  <!-- Cloud corner decorations — 传统祥云 -->
+  <!-- Top-left -->
+  <svg class="sp-cloud-corner sp-cloud-tl" viewBox="0 0 200 160" xmlns="http://www.w3.org/2000/svg">
+    <g class="sp-cloud-path">
+      <!-- 主云头：三层螺旋如意卷 -->
+      <path d="M30,80 C30,55 55,35 80,40 C75,50 65,55 60,52 C55,48 52,42 58,36 C50,38 42,48 45,60 C48,72 60,70 68,62"/>
+      <path d="M80,40 C100,28 130,30 135,55 C125,50 115,52 112,48 C108,44 110,38 118,34 C108,32 98,40 100,52 C102,62 115,60 122,54"/>
+      <path d="M135,55 C150,45 170,55 165,78 C158,72 150,72 148,68 C146,63 150,58 158,56 C148,54 140,62 142,72 C144,80 155,78 160,74"/>
+      <!-- 云尾流线 -->
+      <path d="M30,80 C25,90 20,105 30,115 C40,125 55,118 50,108 C45,98 35,95 30,100"/>
+      <path d="M50,108 C55,120 70,125 80,115 C90,105 82,92 72,95"/>
+      <!-- 连接弧线 -->
+      <path d="M68,62 C72,58 76,50 80,40"/>
+      <path d="M122,54 C128,50 132,48 135,55"/>
+      <!-- 点缀小卷 -->
+      <circle cx="38" cy="72" r="2.5"/>
+      <circle cx="95" cy="38" r="2"/>
+      <circle cx="152" cy="50" r="2"/>
+    </g>
+  </svg>
+  <!-- Top-right (mirrored) -->
+  <svg class="sp-cloud-corner sp-cloud-tr2" viewBox="0 0 200 160" xmlns="http://www.w3.org/2000/svg">
+    <g class="sp-cloud-path">
+      <path d="M170,80 C170,55 145,35 120,40 C125,50 135,55 140,52 C145,48 148,42 142,36 C150,38 158,48 155,60 C152,72 140,70 132,62"/>
+      <path d="M120,40 C100,28 70,30 65,55 C75,50 85,52 88,48 C92,44 90,38 82,34 C92,32 102,40 100,52 C98,62 85,60 78,54"/>
+      <path d="M65,55 C50,45 30,55 35,78 C42,72 50,72 52,68 C54,63 50,58 42,56 C52,54 60,62 58,72 C56,80 45,78 40,74"/>
+      <path d="M170,80 C175,90 180,105 170,115 C160,125 145,118 150,108 C155,98 165,95 170,100"/>
+      <path d="M150,108 C145,120 130,125 120,115 C110,105 118,92 128,95"/>
+      <path d="M132,62 C128,58 124,50 120,40"/>
+      <path d="M78,54 C72,50 68,48 65,55"/>
+      <circle cx="162" cy="72" r="2.5"/>
+      <circle cx="105" cy="38" r="2"/>
+      <circle cx="48" cy="50" r="2"/>
+    </g>
+  </svg>
+  <!-- Bottom-left -->
+  <svg class="sp-cloud-corner sp-cloud-bl2" viewBox="0 0 200 160" xmlns="http://www.w3.org/2000/svg">
+    <g class="sp-cloud-path">
+      <path d="M30,80 C30,105 55,125 80,120 C75,110 65,105 60,108 C55,112 52,118 58,124 C50,122 42,112 45,100 C48,88 60,90 68,98"/>
+      <path d="M80,120 C100,132 130,130 135,105 C125,110 115,108 112,112 C108,116 110,122 118,126 C108,128 98,120 100,108 C102,98 115,100 122,106"/>
+      <path d="M135,105 C150,115 170,105 165,82 C158,88 150,88 148,92 C146,97 150,102 158,104 C148,106 140,98 142,88 C144,80 155,82 160,86"/>
+      <path d="M30,80 C25,70 20,55 30,45 C40,35 55,42 50,52 C45,62 35,65 30,60"/>
+      <path d="M50,52 C55,40 70,35 80,45 C90,55 82,68 72,65"/>
+      <path d="M68,98 C72,102 76,110 80,120"/>
+      <path d="M122,106 C128,110 132,112 135,105"/>
+      <circle cx="38" cy="88" r="2.5"/>
+      <circle cx="95" cy="122" r="2"/>
+      <circle cx="152" cy="110" r="2"/>
+    </g>
+  </svg>
+  <!-- Bottom-right (mirrored) -->
+  <svg class="sp-cloud-corner sp-cloud-br2" viewBox="0 0 200 160" xmlns="http://www.w3.org/2000/svg">
+    <g class="sp-cloud-path">
+      <path d="M170,80 C170,105 145,125 120,120 C125,110 135,105 140,108 C145,112 148,118 142,124 C150,122 158,112 155,100 C152,88 140,90 132,98"/>
+      <path d="M120,120 C100,132 70,130 65,105 C75,110 85,108 88,112 C92,116 90,122 82,126 C92,128 102,120 100,108 C98,98 85,100 78,106"/>
+      <path d="M65,105 C50,115 30,105 35,82 C42,88 50,88 52,92 C54,97 50,102 42,104 C52,106 60,98 58,88 C56,80 45,82 40,86"/>
+      <path d="M170,80 C175,70 180,55 170,45 C160,35 145,42 150,52 C155,62 165,65 170,60"/>
+      <path d="M150,52 C145,40 130,35 120,45 C110,55 118,68 128,65"/>
+      <path d="M132,98 C128,102 124,110 120,120"/>
+      <path d="M78,106 C72,110 68,112 65,105"/>
+      <circle cx="162" cy="88" r="2.5"/>
+      <circle cx="105" cy="122" r="2"/>
+      <circle cx="48" cy="110" r="2"/>
+    </g>
+  </svg>
+
+  <!-- Scroll container -->
+  <div class="sp-scroll">
+    <!-- Top roller -->
+    <div class="sp-scroll-roller sp-scroll-roller-top">
+      <div class="sp-roller-cap"></div>
+      <div class="sp-roller-ornament"></div>
+    </div>
+
+    <!-- Scroll body -->
+    <div class="sp-scroll-body">
+      <!-- Header -->
+      <div class="sp-go-header">
+        <div class="sp-go-status">战况统计 · BATTLE REPORT</div>
+        <div class="sp-go-title">GAME <span>OVER</span></div>
+      </div>
+
+      <!-- Main content -->
+      <div class="sp-go-content">
+        <!-- Left: Big score -->
+        <div class="sp-go-left">
+          <div class="sp-score-label">最终得分</div>
+          <div class="sp-score-num" id="spGoScore">0</div>
+          <div class="sp-hiscore-line">BEST: <span id="spGoHiScore">0</span></div>
+        </div>
+
+        <!-- Right: Stats grid -->
+        <div class="sp-go-stats">
+          <div class="sp-stat-row">
+            <span class="sp-stat-key">等级</span>
+            <span class="sp-stat-val" id="spGoLevel">1</span>
+          </div>
+          <div class="sp-stat-row">
+            <span class="sp-stat-key">生存时间</span>
+            <span class="sp-stat-val" id="spGoTime">0s</span>
+          </div>
+          <div class="sp-stat-row">
+            <span class="sp-stat-key">最终长度</span>
+            <span class="sp-stat-val" id="spGoLen">1</span>
+          </div>
+          <div class="sp-stat-row">
+            <span class="sp-stat-key">最大连击</span>
+            <span class="sp-stat-val amber" id="spGoCombo">×1</span>
+          </div>
+          <div class="sp-stat-row">
+            <span class="sp-stat-key">击坠敌蛇</span>
+            <span class="sp-stat-val" id="spGoKills">0</span>
+          </div>
+          <div class="sp-stat-row">
+            <span class="sp-stat-key">激光命中</span>
+            <span class="sp-stat-val" id="spGoLasHits">0</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Record badge -->
+      <div class="sp-record-badge" id="spGoNewRecord" style="display:none">★ 新纪录</div>
+    </div>
+
+    <!-- Bottom roller -->
+    <div class="sp-scroll-roller sp-scroll-roller-bottom">
+      <div class="sp-roller-cap"></div>
+      <div class="sp-roller-ornament"></div>
+    </div>
+  </div>
+
+  <!-- Action buttons -->
+  <div class="sp-go-actions">
+    <button class="sp-btn sp-btn-home" id="spHomeBtn" onclick="launchHome(this)">← 返回主菜单</button>
+    <button class="sp-btn sp-btn-restart" id="spRedeployBtn" onclick="launchRedeploy(this)">▶ 重新开始</button>
+  </div>
+</div>
+
+<!-- Game Launch Transition Overlay -->
+<div id="launchTransition"></div>
+
+<!-- JS modules in dependency order (global scope shared) -->
+<script src="js/themes.js"></script>
+<script src="js/constants.js"></script>
+<script src="js/state.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/utils.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/game-2d.js"></script>
+<script src="js/game-3d.js"></script>
+<script src="js/background.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
