@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>HexSnake: Dimension Fold</title>
 <link rel="stylesheet" href="style.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg'/>">
 </head>
 <body>
 <canvas id="gameCanvas"></canvas>
@@ -596,16 +597,50 @@
 
 <!-- Evolution Tree -->
 <div id="evoScreen" class="overlay">
-  <div class="evoHeader">
-    <div>
-      <div style="font-family:'Share Tech Mono',monospace;font-size:11px;color:rgba(232,100,10,0.5);letter-spacing:3px;margin-bottom:5px">RHINE LAB · EVOLUTION PROTOCOL v2.1</div>
-      <div class="evoTitle">干员进化</div>
-    </div>
-    <div class="evoHint">点击亮节点选择 · 确认后升级生效<br><span style="color:rgba(232,100,10,0.4)">[F2] 调试升级</span></div>
+  <canvas id="evoCanvas"></canvas>
+  <div class="evoBottom">
+    <div class="evoWarn" id="evoWarn"></div>
+    <button class="bigBtn" onclick="confirmUpgrade()">确认升级</button>
   </div>
-  <canvas id="evoCanvas" width="820" height="480"></canvas>
-  <div class="evoWarn" id="evoWarn"></div>
-  <button class="bigBtn" style="margin-top:12px" onclick="confirmUpgrade()">确认升级</button>
+  <!-- Debug Toggle Button -->
+  <button id="evoDebugToggle" class="evo-debug-toggle" onclick="toggleEvoDebug()" title="节点编辑器 [F3]">✎ 编辑器</button>
+  <!-- Debug Panel -->
+  <div id="evoDebugPanel" class="evo-debug-panel" style="display:none">
+    <div class="evo-debug-header">
+      <span>节点编辑器 · NODE EDITOR</span>
+      <button onclick="toggleEvoDebug()">×</button>
+    </div>
+    <div class="evo-debug-body">
+      <div class="evo-debug-section">
+        <div class="evo-debug-label">当前选中</div>
+        <div class="evo-debug-value" id="debugSelectedNode">—</div>
+      </div>
+      <div class="evo-debug-section">
+        <div class="evo-debug-label">坐标</div>
+        <div class="evo-debug-coords">
+          <span>dx: <b id="debugDx">0.00</b></span>
+          <span>dy: <b id="debugDy">0.00</b></span>
+        </div>
+      </div>
+      <div class="evo-debug-section">
+        <div class="evo-debug-label">微调</div>
+        <div class="evo-debug-buttons">
+          <button onclick="adjustDelta(-0.1, 0)">dx-</button>
+          <button onclick="adjustDelta(0.1, 0)">dx+</button>
+          <button onclick="adjustDelta(0, -0.1)">dy-</button>
+          <button onclick="adjustDelta(0, 0.1)">dy+</button>
+          <button onclick="resetDelta()">重置</button>
+        </div>
+      </div>
+      <div class="evo-debug-section">
+        <div class="evo-debug-label">节点列表</div>
+        <div class="evo-debug-nodelist" id="debugNodeList"></div>
+      </div>
+      <div class="evo-debug-actions">
+        <button class="evo-debug-btn-export" onclick="exportConfig()">导出配置到控制台</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <!-- Countdown Overlay -->
