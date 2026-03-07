@@ -159,9 +159,20 @@ function startGame() {
   enemies=[]; bullets=[]; walls=[]; speedItems=[]; xpBalls=[]; laserVis=null; foodParticles=[];
   unlocked=new Set(); selectedEvo=null; enemyAccum=0; enemyTickT=0;
   combo=0; comboMult=1; lastFoodTS=0; maxCombo=0;
-  threatLevel=0; lastThreatTS=0; threatNotif=null;
+  threatLevel=0; lastThreatTS=0; threatNotif=null; lastWallMaintainTS=0;
   killCount=0; bulletHits=0; laserHits=0;
   food = spawnFood();
+
+  // Pre-spawn initial enemies based on difficulty
+  for(let i=0;i<diffCfg().initialEnemies;i++){
+    let pos=null;
+    for(let a=0;a<200;a++){
+      const x=Math.floor(Math.random()*gCols),y=Math.floor(Math.random()*gRows);
+      const d=Math.abs(x-player.body[0].x)+Math.abs(y-player.body[0].y);
+      if(d>=7&&!isWall(x,y)&&!(food&&x===food.x&&y===food.y)){pos={x,y};break;}
+    }
+    if(pos) enemies.push({body:[{...pos}],prev:[{...pos}],dir:{x:1,y:0},bCD:diffCfg().bulletCD+Math.random()*3000,slowTimer:0,grow:0});
+  }
 
   const now=performance.now();
   lastFrame=now; lastTick=now; lastBulletTick=now; lastSpeedTS=now; lastEnemyTS=now;
@@ -482,12 +493,12 @@ function loop(ts) {
     // Enemy movement with time slow modifier
     const enemyDt = player.timeSlowActive ? dt * TIME_SLOW_ENEMY_MULT : dt;
     enemyAccum += enemyDt;
-    if(enemyAccum>=ENEMY_TICK_BASE){
+    if(enemyAccum>=diffCfg().enemyTick){
       enemies.forEach(e=>{ e.prev=e.body.map(s=>({...s})); });
       updateEnemies();
-      enemyAccum-=ENEMY_TICK_BASE;
+      enemyAccum-=diffCfg().enemyTick;
     }
-    enemyTickT=Math.min(1,enemyAccum/ENEMY_TICK_BASE);
+    enemyTickT=Math.min(1,enemyAccum/diffCfg().enemyTick);
 
     // Bullet movement with time slow modifier
     const bulletInterval = Math.max(60, BULLET_TICK - threatLevel*8);
@@ -503,6 +514,7 @@ function loop(ts) {
     if(ts-lastSpeedTS>=SPEED_ITEM_CD){trySpawnSpeed(); lastSpeedTS=ts;}
     trySpawnEnemy(ts);
     checkThreatEscalation();
+    maintainWalls();
     updateTimers(dt);
     // Skip lerpSpeed during time slow to preserve the speed modifier
     if(!player.timeSlowActive) lerpSpeed(dt);
@@ -619,15 +631,12 @@ function syncPrev(snake) {
 function spawnFood() {
   let pos=randomEmpty();
   if(!pos) return food;
-  const n=Math.random()<0.5?1:2;
-  for(let w=0;w<n;w++){
-    for(let a=0;a<12;a++){
-      const wc=makeWallNear(pos);
-      if(!wc) continue;
-      if(bfsOK(player.body[0],pos,wc)){
-        walls.push({cells:wc, life:WALL_LIFE_MIN+Math.random()*(WALL_LIFE_MAX-WALL_LIFE_MIN), born:performance.now()});
-        break;
-      }
+  for(let a=0;a<12;a++){
+    const wc=makeWallNear(pos);
+    if(!wc) continue;
+    if(bfsOK(player.body[0],pos,wc)){
+      walls.push({cells:wc, life:WALL_LIFE_MIN+Math.random()*(WALL_LIFE_MAX-WALL_LIFE_MIN), born:performance.now()});
+      break;
     }
   }
   return pos;
@@ -673,6 +682,23 @@ function makeWallNear(food) {
   return cells.length>=2?cells:null;
 }
 
+// ═══ WALL DENSITY MAINTENANCE ═══
+let lastWallMaintainTS=0;
+function maintainWalls(){
+  if(gameTime-lastWallMaintainTS<WALL_MAINTAIN_CD) return;
+  lastWallMaintainTS=gameTime;
+  const target=WALL_MIN_COUNT+Math.floor(threatLevel/2);
+  let attempts=0;
+  while(walls.length<target&&attempts<30){
+    attempts++;
+    const anchor={x:Math.floor(Math.random()*gCols),y:Math.floor(Math.random()*gRows)};
+    const wc=makeWallNear(anchor);
+    if(wc&&bfsOK(player.body[0],food,wc)){
+      walls.push({cells:wc,life:WALL_LIFE_MIN+Math.random()*(WALL_LIFE_MAX-WALL_LIFE_MIN),born:performance.now()});
+    }
+  }
+}
+
 function eatFood() {
   // ── Combo ──
   combo++;
@@ -680,7 +706,7 @@ function eatFood() {
   comboMult=Math.min(4, 1 + (combo-1)*0.5);  // ×1 / ×1.5 / ×2 / ×2.5 / ×3 / ×3.5 / ×4 cap
   lastFoodTS=gameTime;
 
-  const pts=Math.round(10*comboMult);
+  const pts=Math.round(10*comboMult*diffCfg().xpMult);
   score+=pts;
   player.grow++;
 
@@ -753,10 +779,10 @@ function doLevelUp() {
 
 // ═══ ENEMIES ═══
 function trySpawnEnemy(ts) {
-  if(gameTime<ENEMY_DELAY) return;
-  const maxE=1+Math.floor((gameTime-ENEMY_DELAY)/40000);
+  if(gameTime<diffCfg().enemyDelay) return;
+  const maxE=Math.min(diffCfg().maxEnemies, 1+Math.floor((gameTime-diffCfg().enemyDelay)/diffCfg().spawnCD));
   if(enemies.length>=maxE) return;
-  if(ts-lastEnemyTS<ENEMY_SPAWN_CD) return;
+  if(ts-lastEnemyTS<diffCfg().spawnCD) return;
   let pos=null;
   for(let a=0;a<200;a++){
     const x=Math.floor(Math.random()*gCols),y=Math.floor(Math.random()*gRows);
@@ -764,7 +790,7 @@ function trySpawnEnemy(ts) {
     if(d>=7&&!isWall(x,y)&&!(food&&x===food.x&&y===food.y)){pos={x,y};break;}
   }
   if(!pos) return;
-  enemies.push({body:[{...pos}],prev:[{...pos}],dir:{x:1,y:0},bCD:ENEMY_BULLET_CD+Math.random()*3000,slowTimer:0,grow:0});
+  enemies.push({body:[{...pos}],prev:[{...pos}],dir:{x:1,y:0},bCD:diffCfg().bulletCD+Math.random()*3000,slowTimer:0,grow:0});
   lastEnemyTS=ts;
 }
 
@@ -776,9 +802,9 @@ const THREAT_MSGS=[
   '终极威胁 — 全面压制',
 ];
 function checkThreatEscalation() {
-  if(gameTime<ENEMY_DELAY) return;
-  const elapsed=gameTime-ENEMY_DELAY;
-  const newLevel=Math.floor(elapsed/THREAT_INTERVAL)+1;
+  if(gameTime<diffCfg().enemyDelay) return;
+  const elapsed=gameTime-diffCfg().enemyDelay;
+  const newLevel=Math.min(diffCfg().threatCap, Math.floor(elapsed/diffCfg().threatInterval)+1);
   if(newLevel>threatLevel){
     threatLevel=newLevel;
     const msg=THREAT_MSGS[Math.min(threatLevel-1,THREAT_MSGS.length-1)];
@@ -830,11 +856,22 @@ function updateEnemies() {
 }
 
 function checkEnemyBullet(e,ei) {
-  if(e.bCD<=0){fireEnemyBullet(e);e.bCD=ENEMY_BULLET_CD;}
+  if(e.bCD<=0){fireEnemyBullet(e);e.bCD=diffCfg().bulletCD;}
 }
 
 
 // ═══ BULLETS ═══
+function _pushBullet(x,y,dx,dy){
+  const fast=threatLevel>=BULLET_FAST_THREAT&&Math.random()<0.3;
+  bullets.push({x,y,dx,dy,fast,bounces:0});
+}
+function _maybeSpread(x,y,dx,dy){
+  _pushBullet(x,y,dx,dy);
+  if(threatLevel>=BULLET_SPREAD_THREAT&&Math.random()<0.25){
+    if(dx!==0){_pushBullet(x,y,0,1);_pushBullet(x,y,0,-1);}
+    else{_pushBullet(x,y,1,0);_pushBullet(x,y,-1,0);}
+  }
+}
 function fireEnemyBullet(enemy) {
   const eh=enemy.body[0];
   const ws=wallKeySet();
@@ -844,10 +881,10 @@ function fireEnemyBullet(enemy) {
     for(const[dx,dy] of[[1,0],[-1,0],[0,1],[0,-1]]){
       const ok=(dx===1&&tdx>0&&tdy===0)||(dx===-1&&tdx<0&&tdy===0)||
                (dy===1&&tdy>0&&tdx===0)||(dy===-1&&tdy<0&&tdx===0);
-      if(ok&&hasLOS(eh,tgt,dx,dy,ws)){bullets.push({x:eh.x,y:eh.y,dx,dy});return;}
+      if(ok&&hasLOS(eh,tgt,dx,dy,ws)){_maybeSpread(eh.x,eh.y,dx,dy);return;}
     }
   }
-  if(enemy.dir.x!==0||enemy.dir.y!==0) bullets.push({x:eh.x,y:eh.y,dx:enemy.dir.x,dy:enemy.dir.y});
+  if(enemy.dir.x!==0||enemy.dir.y!==0) _maybeSpread(eh.x,eh.y,enemy.dir.x,enemy.dir.y);
 }
 
 function hasLOS(from,to,dx,dy,ws) {
@@ -864,14 +901,50 @@ function updateBullets() {
   if(!player.alive) return;
   const ws=wallKeySet();
   bullets=bullets.filter(b=>{
-    b.x+=b.dx; b.y+=b.dy;
-    if(b.x<0||b.x>=gCols||b.y<0||b.y>=gRows) return false;
-    if(ws.has(`${b.x},${b.y}`)) return false;
-    const hi=player.body.findIndex(s=>s.x===b.x&&s.y===b.y);
-    if(hi>=0){
-      const died=_applyPlayerDamage(hi,20);
-      if(!died){bulletHits++;Audio.sfxBulletHit();flash('被子弹击中！-20分');}
-      return false;
+    const steps=b.fast?2:1;
+    for(let step=0;step<steps;step++){
+      b.x+=b.dx; b.y+=b.dy;
+      // 1. out of bounds → destroy
+      if(b.x<0||b.x>=gCols||b.y<0||b.y>=gRows) return false;
+      // 2. wall → ricochet or destroy
+      if(ws.has(`${b.x},${b.y}`)){
+        if((b.bounces||0)>=BULLET_MAX_BOUNCES) return false;
+        b.bounces=(b.bounces||0)+1;
+        b.x-=b.dx; b.y-=b.dy;
+        // reflect: swap axis
+        if(b.dx!==0){
+          const tryDirs=[[0,1],[0,-1]].sort(()=>Math.random()-.5);
+          let ref=false;
+          for(const[ndx,ndy] of tryDirs){
+            if(!ws.has(`${b.x+ndx},${b.y+ndy}`)&&b.x+ndx>=0&&b.x+ndx<gCols&&b.y+ndy>=0&&b.y+ndy<gRows){b.dx=ndx;b.dy=ndy;ref=true;break;}
+          }
+          if(!ref) b.dx=-b.dx;
+        } else {
+          const tryDirs=[[1,0],[-1,0]].sort(()=>Math.random()-.5);
+          let ref=false;
+          for(const[ndx,ndy] of tryDirs){
+            if(!ws.has(`${b.x+ndx},${b.y+ndy}`)&&b.x+ndx>=0&&b.x+ndx<gCols&&b.y+ndy>=0&&b.y+ndy<gRows){b.dx=ndx;b.dy=ndy;ref=true;break;}
+          }
+          if(!ref) b.dy=-b.dy;
+        }
+        break; // stop stepping this tick after ricochet
+      }
+      // 3. hit player
+      const hi=player.body.findIndex(s=>s.x===b.x&&s.y===b.y);
+      if(hi>=0){
+        const died=_applyPlayerDamage(hi,20);
+        if(!died){bulletHits++;Audio.sfxBulletHit();flash('被子弹击中！-20分');}
+        return false;
+      }
+      // 4. friendly fire — hit enemy snake
+      for(let ei=enemies.length-1;ei>=0;ei--){
+        const e=enemies[ei];
+        const si=e.body.findIndex(s=>s.x===b.x&&s.y===b.y);
+        if(si<0) continue;
+        if(si===0){score+=50;killCount++;Audio.sfxEnemyDeath();enemies.splice(ei,1);}
+        else{e.body.splice(si);score+=15;Audio.sfxEnemyHit();}
+        return false;
+      }
     }
     return true;
   });
@@ -1247,6 +1320,12 @@ function processQueuedSkill() {
 
 // ═══ INPUT ═══
 function onKey(e) {
+  // F3: toggle evo tree debug editor (always active)
+  if (e.key === 'F3') {
+    e.preventDefault();
+    toggleEvoDebug();
+    return;
+  }
   // ESC closes settings panel
   if(e.key==='Escape'){
     const cfg=document.getElementById('cfgScreen');
@@ -1497,11 +1576,17 @@ function render() {
   // ── Enemy bullets ──
   bullets.forEach(b=>{
     const px=GCX(b.x), py=GCY(b.y);
-    const r=cS*0.15;
+    const r=b.fast?cS*0.2:cS*0.15;
     ctx.fillStyle=T.bullet;
     ctx.beginPath();ctx.arc(px,py,r,0,Math.PI*2);ctx.fill();
     ctx.fillStyle=T.bulletGlow;
     ctx.beginPath();ctx.arc(px,py,r*2.2,0,Math.PI*2);ctx.fill();
+    if(b.fast){
+      // trail effect for fast bullets
+      const tx=px-b.dx*cS*0.4, ty=py-b.dy*cS*0.4;
+      ctx.fillStyle=T.bulletGlow;
+      ctx.beginPath();ctx.arc(tx,ty,r*1.5,0,Math.PI*2);ctx.fill();
+    }
   });
 
   // ── Laser beam ──
@@ -1601,8 +1686,8 @@ function render() {
   // ── Laser cooldown removed - replaced by edge glow UI
 
   // ── Enemy countdown ──
-  if(player&&gameTime<ENEMY_DELAY){
-    const remaining=Math.ceil((ENEMY_DELAY-gameTime)/1000);
+  if(player&&gameTime<diffCfg().enemyDelay){
+    const remaining=Math.ceil((diffCfg().enemyDelay-gameTime)/1000);
     ctx.font=`bold 10px 'Share Tech Mono', monospace`;
     ctx.fillStyle=T.enemyCountdown;
     ctx.textAlign='right';
@@ -1926,30 +2011,107 @@ function renderIceShatter(ctx, progress, hx, hy, T) {
 }
 
 // ── Edge Glow Cooldown UI ──
+let _edgePrevProg = {laser: -1, ts: -1, ms: -1};
+let _edgeFlash = {laser: 0, ts: 0, ms: 0};
+
 function renderEdgeGlow(ctx) {
   const pad = 4;
+  const barW = 8;
+  const now = performance.now();
+  const pulse = 0.6 + 0.4 * Math.sin(now * 0.004);
+  const FLASH_MS = 300;
 
   // Calculate cooldown progress (0 = ready, 1 = just fired)
   const laserProg = Math.max(0, Math.min(1, player.lCD / (LASER_CD_BASE * player.upg.laserCD)));
   const tsProg = Math.max(0, Math.min(1, player.timeSlowCD / getTimeSlowCD()));
   const msProg = Math.max(0, Math.min(1, player.missileCD / getMissileCD()));
 
-  const W = canvas.width;
-  const H = canvas.height;
+  // Detect cooldown-ready transitions
+  if(_edgePrevProg.laser > 0 && laserProg === 0) { _edgeFlash.laser = FLASH_MS; Audio.sfxCooldownReady(); }
+  if(_edgePrevProg.ts > 0 && tsProg === 0) { _edgeFlash.ts = FLASH_MS; Audio.sfxCooldownReady(); }
+  if(_edgePrevProg.ms > 0 && msProg === 0) { _edgeFlash.ms = FLASH_MS; Audio.sfxCooldownReady(); }
+  _edgePrevProg.laser = laserProg;
+  _edgePrevProg.ts = tsProg;
+  _edgePrevProg.ms = msProg;
 
-  // Top edge (Laser - amber)
-  const laserBright = 1 - laserProg * 0.5;
-  ctx.fillStyle = `rgba(255, ${Math.floor(170 * laserBright)}, ${Math.floor(100 * laserBright)}, ${1 - laserProg * 0.7})`;
-  ctx.fillRect(pad, pad, W - pad*2, 3);
+  // Decay flash timers (~16ms per frame)
+  if(_edgeFlash.laser > 0) _edgeFlash.laser = Math.max(0, _edgeFlash.laser - 16);
+  if(_edgeFlash.ts > 0) _edgeFlash.ts = Math.max(0, _edgeFlash.ts - 16);
+  if(_edgeFlash.ms > 0) _edgeFlash.ms = Math.max(0, _edgeFlash.ms - 16);
 
-  // Left edge (Time Slow - ice blue)
-  const tsBright = 1 - tsProg * 0.5;
-  ctx.fillStyle = `rgba(${Math.floor(100 * tsBright)}, ${Math.floor(200 * tsBright)}, 255, ${1 - tsProg * 0.7})`;
-  ctx.fillRect(pad, pad, 3, H - pad*2);
+  const W = window.innerWidth;
+  const H = window.innerHeight;
+  const topY = HUD_H + pad;
+  const sideY = HUD_H + pad;
 
-  // Right edge (Missiles - cyan-green)
-  const msBright = 1 - msProg * 0.5;
-  ctx.fillStyle = `rgba(0, ${Math.floor(255 * msBright)}, ${Math.floor(200 * msBright)}, ${1 - msProg * 0.7})`;
-  ctx.fillRect(W - pad - 3, pad, 3, H - pad*2);
+  ctx.save();
+
+  // ── Top edge (Laser - amber) ──
+  const topLen = W - pad * 2;
+  const topFill = topLen * (1 - laserProg);
+  ctx.fillStyle = 'rgba(255, 170, 100, 0.1)';
+  ctx.fillRect(pad, topY, topLen, barW);
+  if(laserProg === 0) { ctx.shadowColor = 'rgba(255, 170, 100, 0.8)'; ctx.shadowBlur = 10 * pulse; }
+  else { ctx.shadowBlur = 0; }
+  ctx.fillStyle = laserProg === 0
+    ? `rgba(255, 170, 100, ${0.7 + 0.3 * pulse})`
+    : 'rgba(255, 170, 100, 0.6)';
+  ctx.fillRect(pad, topY, topFill, barW);
+  ctx.shadowBlur = 0;
+  // Flash burst
+  if(_edgeFlash.laser > 0) {
+    const f = _edgeFlash.laser / FLASH_MS;
+    ctx.shadowColor = 'rgba(255, 170, 100, 1)';
+    ctx.shadowBlur = 40 * f;
+    ctx.fillStyle = `rgba(255, 200, 140, ${0.6 * f})`;
+    ctx.fillRect(pad, topY - 4, topLen, barW + 8);
+    ctx.shadowBlur = 0;
+  }
+
+  // ── Left edge (Time Slow - ice blue) ──
+  const leftLen = H - sideY - pad;
+  const leftFill = leftLen * (1 - tsProg);
+  ctx.fillStyle = 'rgba(100, 200, 255, 0.1)';
+  ctx.fillRect(pad, sideY, barW, leftLen);
+  if(tsProg === 0) { ctx.shadowColor = 'rgba(100, 200, 255, 0.8)'; ctx.shadowBlur = 10 * pulse; }
+  else { ctx.shadowBlur = 0; }
+  ctx.fillStyle = tsProg === 0
+    ? `rgba(100, 200, 255, ${0.7 + 0.3 * pulse})`
+    : 'rgba(100, 200, 255, 0.6)';
+  ctx.fillRect(pad, sideY + leftLen - leftFill, barW, leftFill);
+  ctx.shadowBlur = 0;
+  // Flash burst
+  if(_edgeFlash.ts > 0) {
+    const f = _edgeFlash.ts / FLASH_MS;
+    ctx.shadowColor = 'rgba(100, 200, 255, 1)';
+    ctx.shadowBlur = 40 * f;
+    ctx.fillStyle = `rgba(140, 220, 255, ${0.6 * f})`;
+    ctx.fillRect(pad - 4, sideY, barW + 8, leftLen);
+    ctx.shadowBlur = 0;
+  }
+
+  // ── Right edge (Missiles - cyan-green) ──
+  const rightLen = H - sideY - pad;
+  const rightFill = rightLen * (1 - msProg);
+  ctx.fillStyle = 'rgba(0, 255, 200, 0.1)';
+  ctx.fillRect(W - pad - barW, sideY, barW, rightLen);
+  if(msProg === 0) { ctx.shadowColor = 'rgba(0, 255, 200, 0.8)'; ctx.shadowBlur = 10 * pulse; }
+  else { ctx.shadowBlur = 0; }
+  ctx.fillStyle = msProg === 0
+    ? `rgba(0, 255, 200, ${0.7 + 0.3 * pulse})`
+    : 'rgba(0, 255, 200, 0.6)';
+  ctx.fillRect(W - pad - barW, sideY + rightLen - rightFill, barW, rightFill);
+  ctx.shadowBlur = 0;
+  // Flash burst
+  if(_edgeFlash.ms > 0) {
+    const f = _edgeFlash.ms / FLASH_MS;
+    ctx.shadowColor = 'rgba(0, 255, 200, 1)';
+    ctx.shadowBlur = 40 * f;
+    ctx.fillStyle = `rgba(100, 255, 220, ${0.6 * f})`;
+    ctx.fillRect(W - pad - barW - 4, sideY, barW + 8, rightLen);
+    ctx.shadowBlur = 0;
+  }
+
+  ctx.restore();
 }
 

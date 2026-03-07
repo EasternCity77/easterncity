@@ -17,15 +17,7 @@ window.addEventListener('DOMContentLoaded', () => {
   ctx=canvas.getContext('2d');
   evoCanvas=document.getElementById('evoCanvas');
   evoCtx=evoCanvas.getContext('2d');
-  // DPR scaling for crisp rendering
-  (function(){
-    const dpr=window.devicePixelRatio||1;
-    evoCanvas.width=EVO_W*dpr;
-    evoCanvas.height=EVO_H*dpr;
-    evoCanvas.style.width=EVO_W+'px';
-    evoCanvas.style.height=EVO_H+'px';
-    evoCtx.scale(dpr,dpr);
-  })();
+  // Canvas sizing handled dynamically in drawEvoTree()
   evoCanvas.addEventListener('click',onEvoClick);
   document.addEventListener('keydown',onKey);
   window.addEventListener('resize',resizeGame);

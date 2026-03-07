@@ -3,236 +3,113 @@
 // ═══ ui.js ═══
 // Evolution tree, HUD, flash, death screen, game over, i18n, goHome, modeToggle
 
-// ═══ EVOLUTION TREE ═══
-const EVO_W=820, EVO_H=480;
-const EVO_DIV=316;
+// ═══ EVOLUTION TREE — HONEYCOMB LAYOUT ═══
+
 function curNodes(){return gameMode==='3d'?EVO_NODES_3D:EVO_NODES;}
 function curCodes(){return gameMode==='3d'?NODE_CODES_3D:NODE_CODES;}
 
-function drawEvoTree() {
-  const c = evoCtx;
-  const EVO = getTheme().evo;
-  c.clearRect(0, 0, EVO_W, EVO_H);
-
-  // ── Deep dark base ──
-  c.fillStyle = '#07090E';
-  c.fillRect(0, 0, EVO_W, EVO_H);
-
-  // ── Pixel grid ──
-  c.strokeStyle = 'rgba(0,220,160,0.035)';
-  c.lineWidth = 0.5;
-  const GS = 20;
-  for (let x = 0; x < EVO_W; x += GS) { c.beginPath(); c.moveTo(x,0); c.lineTo(x,EVO_H); c.stroke(); }
-  for (let y = 0; y < EVO_H; y += GS) { c.beginPath(); c.moveTo(0,y); c.lineTo(EVO_W,y); c.stroke(); }
-
-  // ── Scanlines ──
-  for (let y = 0; y < EVO_H; y += 4) {
-    c.fillStyle = 'rgba(0,0,0,0.1)';
-    c.fillRect(0, y, EVO_W, 1);
-  }
-
-  // ── Section backgrounds ──
-  c.fillStyle = `rgba(${EVO.combatRgb},0.04)`;
-  c.fillRect(0, 0, EVO_W, EVO_DIV);
-  c.fillStyle = `rgba(${EVO.mobilityRgb},0.04)`;
-  c.fillRect(0, EVO_DIV, EVO_W, EVO_H - EVO_DIV);
-
-  // ── Section border outlines ──
-  c.strokeStyle = `rgba(${EVO.combatRgb},0.12)`;
-  c.lineWidth = 1;
-  c.strokeRect(2, 2, EVO_W - 4, EVO_DIV - 4);
-  c.strokeStyle = `rgba(${EVO.mobilityRgb},0.12)`;
-  c.strokeRect(2, EVO_DIV + 2, EVO_W - 4, EVO_H - EVO_DIV - 4);
-
-  // ── Divider line ──
-  c.strokeStyle = 'rgba(100,120,150,0.25)';
-  c.lineWidth = 1;
-  c.setLineDash([6, 8]);
-  c.beginPath(); c.moveTo(0, EVO_DIV); c.lineTo(EVO_W, EVO_DIV); c.stroke();
-  c.setLineDash([]);
-
-  // ── Section headers ──
-  _evoSectionLabel(c, '> COMBAT MODULE', 12, 14, EVO.combat);
-  _evoSectionLabel(c, '> MOBILITY MODULE', 12, EVO_DIV + 14, EVO.mobility);
-
-  // ── Right info panel (x=424 onwards) ──
-  _evoInfoPanel(c);
-
-  // ── Connection lines ──
-  _evoConnections(c);
-
-  // ── Nodes ──
-  curNodes().forEach(n => drawEvoNode(c, n));
+// ── Hex helpers ──
+function _evoBranchCol(branch, EVO) {
+  if(branch==='laser')   return {col:EVO.laser,   rgb:EVO.laserRgb};
+  if(branch==='missile') return {col:EVO.missile,  rgb:EVO.missileRgb};
+  return {col:EVO.mobility, rgb:EVO.mobilityRgb};
 }
 
-function _evoSectionLabel(c, text, x, y, col) {
-  c.font = '700 9px "Share Tech Mono", monospace';
-  c.fillStyle = col;
-  c.globalAlpha = 0.5;
-  c.fillText(text, x, y);
-  c.globalAlpha = 1;
+function _evoHexPath(c, cx, cy, r) {
+  c.beginPath();
+  for(let i=0;i<6;i++){
+    const a = i*Math.PI/3; // flat-top
+    const x = cx + r*Math.cos(a), y = cy + r*Math.sin(a);
+    if(i===0) c.moveTo(x,y); else c.lineTo(x,y);
+  }
+  c.closePath();
 }
 
-function _evoInfoPanel(c) {
-  const EVO = getTheme().evo;
-  const px = 430, pw = 380, PADL = 18;
+// Convert node to pixel position
+function _evoNodePos(n, cx, cy, sp) {
+  return { x: cx + n.dx * sp, y: cy + n.dy * sp };
+}
 
-  // Panel background
-  c.fillStyle = 'rgba(5,8,14,0.7)';
-  c.fillRect(px, 8, pw - 8, EVO_H - 16);
-  c.strokeStyle = 'rgba(60,80,110,0.3)';
-  c.lineWidth = 1;
-  c.strokeRect(px, 8, pw - 8, EVO_H - 16);
+// Point-in-hex test (distance-based for flat-top hex)
+function _evoHitHex(mx, my, hx, hy, r) {
+  const dx = Math.abs(mx-hx), dy = Math.abs(my-hy);
+  if(dx > r || dy > r*0.866) return false;
+  return r*0.866 - dy > (dx - r*0.5)*1.732;
+}
 
-  // Panel title
-  c.font = '700 8px "Share Tech Mono", monospace';
-  c.fillStyle = 'rgba(160,180,200,0.4)';
-  c.fillText('OPERATOR LOADOUT', px + PADL, 26);
-  c.strokeStyle = 'rgba(60,80,110,0.4)';
-  c.lineWidth = 0.5;
-  c.beginPath(); c.moveTo(px + PADL, 30); c.lineTo(px + pw - 24, 30); c.stroke();
-
-  // List active upgrades
-  const active = curNodes().filter(n => unlocked.has(n.id));
-  const sectionColors = { combat: EVO.combat, mobility: EVO.mobility };
-
-  if (active.length === 0) {
-    c.font = '10px "Share Tech Mono", monospace';
-    c.fillStyle = 'rgba(60,80,110,0.6)';
-    c.fillText('[ NO UPGRADES ACTIVE ]', px + PADL, 58);
-  } else {
-    let lineY = 48;
-    active.forEach((n, i) => {
-      const col = sectionColors[n.section];
-      // Bullet
-      c.fillStyle = col;
-      c.fillRect(px + PADL, lineY - 7, 3, 10);
-      // Label
-      c.font = '700 12px "Barlow Condensed", sans-serif';
-      c.fillStyle = '#C8D4E0';
-      c.fillText(n.label, px + PADL + 10, lineY);
-      // Description
-      c.font = '8px "Share Tech Mono", monospace';
-      c.fillStyle = 'rgba(100,130,160,0.65)';
-      c.fillText(n.desc, px + PADL + 10, lineY + 11);
-      lineY += 28;
-    });
+// ── Floating effect: per-node random phase seeds ──
+const _evoFloatSeeds = {};
+function _evoFloatOffset(nodeId, now) {
+  let s = _evoFloatSeeds[nodeId];
+  if (!s) {
+    s = _evoFloatSeeds[nodeId] = {
+      px: Math.random()*Math.PI*2, py: Math.random()*Math.PI*2,
+      sx: 0.8+Math.random()*0.4,   sy: 0.8+Math.random()*0.4
+    };
   }
+  return {
+    x: Math.sin(now*0.001*s.sx + s.px) * 3,
+    y: Math.cos(now*0.0013*s.sy + s.py) * 3
+  };
+}
 
-  // Selected node detail
-  if (selectedEvo) {
-    const sn = curNodes().find(n => n.id === selectedEvo);
-    if (sn) {
-      const detY = EVO_H - 120;
-      c.fillStyle = `rgba(${EVO.combatRgb},0.06)`;
-      c.fillRect(px, detY, pw - 8, 108);
-      c.strokeStyle = `rgba(${EVO.combatRgb},0.25)`;
-      c.lineWidth = 1;
-      c.strokeRect(px, detY, pw - 8, 108);
+// ── Mouse tracking ──
+let _evoMouseX = -1, _evoMouseY = -1;
+let _evoHoverNode = null;
 
-      c.font = '700 8px "Share Tech Mono", monospace';
-      c.fillStyle = `rgba(${EVO.combatRgb},0.6)`;
-      c.fillText('SELECTED >', px + PADL, detY + 16);
+// ── Selection focus animation ──
+let _evoFocusT = 0;
+let _evoFocusTarget = null;
+let _evoLastFocusTime = 0;
+let _evoFocusFinalCx = 0, _evoFocusFinalCy = 0;
 
-      c.font = '700 16px "Barlow Condensed", sans-serif';
-      c.fillStyle = EVO.combat;
-      c.fillText(sn.label, px + PADL, detY + 36);
-
-      c.font = '9px "Share Tech Mono", monospace';
-      c.fillStyle = 'rgba(200,180,150,0.8)';
-      c.fillText(sn.desc, px + PADL, detY + 52);
-
-      c.font = '700 8px "Share Tech Mono", monospace';
-      c.fillStyle = 'rgba(100,130,160,0.5)';
-      c.fillText(`CODE: ${curCodes()[sn.id] || sn.id.toUpperCase()}`, px + PADL, detY + 70);
-
-      // Req status
-      if (sn.req.length > 0) {
-        const reqNames = sn.req.map(r => curNodes().find(x => x.id === r)?.label || r).join(', ');
-        c.fillText(`前置: ${reqNames}`, px + PADL, detY + 84);
-      }
-
-      // "PRESS CONFIRM" blink
-      if (Math.floor(performance.now() / 500) % 2 === 0) {
-        c.font = '700 9px "Share Tech Mono", monospace';
-        c.fillStyle = EVO.combat;
-        c.fillText('[ PRESS CONFIRM TO INSTALL ]', px + PADL, detY + 100);
-      }
+// Render position: base + float + mouse attraction
+function _evoNodeRenderPos(n, L, now) {
+  const base = _evoNodePos(n, L.cx, L.cy, L.sp);
+  // Disable floating for selected node when focus is complete
+  const isFocused = _evoFocusT > 0.99 && selectedEvo === n.id;
+  const f = isFocused ? {x: 0, y: 0} : _evoFloatOffset(n.id, now);
+  let x = base.x + f.x, y = base.y + f.y;
+  // Mouse attraction (subtle)
+  if (_evoMouseX >= 0 && !isFocused) {
+    const mdx = x - _evoMouseX, mdy = y - _evoMouseY;
+    const dist = Math.sqrt(mdx*mdx + mdy*mdy);
+    const maxD = L.hexR * 3;
+    if (dist < maxD && dist > 0.1) {
+      const strength = (1 - dist/maxD) * 0.06;
+      x += (_evoMouseX - x) * strength;
+      y += (_evoMouseY - y) * strength;
     }
   }
-
-  // Unlock count
-  c.font = '700 9px "Share Tech Mono", monospace';
-  c.fillStyle = 'rgba(100,130,160,0.4)';
-  c.fillText(`${unlocked.size} / ${curNodes().length}  INSTALLED`, px + PADL, EVO_H - 14);
+  return {x, y};
 }
 
-function _evoConnections(c) {
-  const EVO = getTheme().evo;
-  curNodes().forEach(n => {
-    n.req.forEach(rid => {
-      const rn = curNodes().find(x => x.id === rid);
-      if (!rn) return;
-      const unlRn = unlocked.has(rid);
-      const unlN  = unlocked.has(n.id);
+// ── Layout params (recalculated each frame) ──
+let _evoLayout = {cx:0,cy:0,sp:0,hexR:0};
 
-      const secCol = n.section === 'combat' ? EVO.combat : EVO.mobility;
-      let lineCol, lineW, dash, alpha;
+function _evoCalcLayout() {
+  const W = window.innerWidth, H = window.innerHeight;
+  let hexR = Math.min(W,H) * 0.048;
+  let sp = hexR * 2.6;
+  let cx = W * 0.5, cy = H * 0.44;
 
-      if (unlN) {
-        lineCol = EVO.unlocked; lineW = 2; dash = []; alpha = 0.85;
-      } else if (unlRn) {
-        lineCol = secCol; lineW = 1.5; dash = [5, 4]; alpha = 0.75;
-      } else {
-        lineCol = EVO.locked; lineW = 1; dash = [3, 6]; alpha = 0.5;
-      }
+  // Selection focus: zoom and center on target node
+  if (_evoFocusT > 0.001 && _evoFocusTarget) {
+    const zoom = 1 + _evoFocusT * 0.35;
+    hexR *= zoom;
+    sp *= zoom;
+    // Use pre-calculated final target position (fixed during animation)
+    cx += (_evoFocusFinalCx - cx) * 0.3;
+    cy += (_evoFocusFinalCy - cy) * 0.3;
+  }
 
-      c.save();
-      c.globalAlpha = alpha;
-      c.strokeStyle = lineCol;
-      c.lineWidth = lineW;
-      c.setLineDash(dash);
-      c.lineCap = 'square';
-
-      // Source: right edge center of parent
-      const x1 = rn.x + NW, y1 = rn.y + NH / 2;
-      // Target: left edge center of child
-      const x2 = n.x,        y2 = n.y  + NH / 2;
-      const mx = x1 + (x2 - x1) * 0.45;
-
-      if (Math.abs(y1 - y2) < 2) {
-        // Straight horizontal
-        c.beginPath(); c.moveTo(x1, y1); c.lineTo(x2, y2); c.stroke();
-      } else {
-        // Right-angle elbow: horizontal → vertical → horizontal
-        c.beginPath();
-        c.moveTo(x1, y1);
-        c.lineTo(mx, y1);
-        c.lineTo(mx, y2);
-        c.lineTo(x2, y2);
-        c.stroke();
-        // Junction dot at bend
-        c.setLineDash([]);
-        c.fillStyle = lineCol;
-        c.beginPath(); c.arc(mx, y1, 2.5, 0, Math.PI*2); c.fill();
-        c.beginPath(); c.arc(mx, y2, 2.5, 0, Math.PI*2); c.fill();
-      }
-
-      // Arrow tip
-      c.setLineDash([]);
-      c.globalAlpha = alpha;
-      const AS = 6;
-      c.fillStyle = lineCol;
-      c.beginPath();
-      c.moveTo(x2, y2);
-      c.lineTo(x2 - AS, y2 - AS * 0.5);
-      c.lineTo(x2 - AS, y2 + AS * 0.5);
-      c.closePath(); c.fill();
-
-      c.restore();
-    });
-  });
+  _evoLayout = {cx,cy,sp,hexR,W,H};
+  return _evoLayout;
 }
+
+// ── Animation state ──
+let _evoOpenTime = 0;
+let _evoSelectedAnim = 0; // 0-1 for selection scale animation
 
 function nodeState(n) {
   if(unlocked.has(n.id)) return 'unlocked';
@@ -240,151 +117,588 @@ function nodeState(n) {
   return 'locked';
 }
 
-function drawEvoNode(c, n) {
+// ═══ MAIN DRAW ═══
+function drawEvoTree() {
+  const c = evoCtx;
   const EVO = getTheme().evo;
-  const st = nodeState(n);
-  const sel = selectedEvo === n.id;
-  const x = n.x, y = n.y, w = NW, h = NH;
-  const secCol = n.section === 'combat' ? EVO.combat : EVO.mobility;
-  const secRgb = n.section === 'combat' ? EVO.combatRgb : EVO.mobilityRgb;
-  const blink = Math.floor(performance.now() / 420) % 2 === 0;
+  const now = performance.now();
 
-  // ── State-dependent colors ──
-  let bgCol, accentCol, labelCol, descCol, statusTxt, statusCol, glowCol;
+  // ── Drive focus animation ──
+  const dt = now - (_evoLastFocusTime || now);
+  _evoLastFocusTime = now;
 
-  if (st === 'unlocked') {
-    bgCol     = 'rgba(0,40,20,0.9)';
-    accentCol = EVO.unlocked;
-    labelCol  = EVO.unlocked;
-    descCol   = `rgba(${EVO.unlockedRgb},0.55)`;
-    statusTxt = '■ OK';
-    statusCol = EVO.unlocked;
-    glowCol   = EVO.unlockedRgb;
-  } else if (st === 'available') {
-    if (sel) {
-      bgCol     = n.section==='combat' ? 'rgba(70,28,0,0.95)' : 'rgba(0,42,38,0.95)';
-      accentCol = secCol;
-      labelCol  = '#FFFFFF';
-      descCol   = 'rgba(255,255,255,0.6)';
-      statusTxt = blink ? '▶ SEL' : '  SEL';
-      statusCol = secCol;
-      glowCol   = secRgb;
-    } else {
-      bgCol     = 'rgba(10,14,22,0.92)';
-      accentCol = secCol;
-      labelCol  = secCol;
-      descCol   = `rgba(${secRgb},0.55)`;
-      statusTxt = '○ RDY';
-      statusCol = secCol;
-      glowCol   = secRgb;
+  if (selectedEvo) {
+    const targetNode = curNodes().find(n => n.id === selectedEvo);
+    if (targetNode && (!_evoFocusTarget || _evoFocusTarget.id !== selectedEvo)) {
+      _evoFocusTarget = targetNode;
+      // Pre-calculate final target position with full zoom (1.35x)
+      const W = window.innerWidth, H = window.innerHeight;
+      const baseSp = Math.min(W, H) * 0.048 * 2.6;
+      const finalSp = baseSp * 1.35;
+      _evoFocusFinalCx = W / 2 - targetNode.dx * finalSp;
+      _evoFocusFinalCy = H / 2 - targetNode.dy * finalSp;
     }
+    _evoFocusT = Math.min(1, _evoFocusT + dt * 0.004);
   } else {
-    bgCol     = 'rgba(6,8,14,0.85)';
-    accentCol = EVO.locked;
-    labelCol  = EVO.locked;
-    descCol   = EVO.locked;
-    statusTxt = '× LCK';
-    statusCol = EVO.locked;
-    glowCol   = null;
+    _evoFocusT = Math.max(0, _evoFocusT - dt * 0.006);
+    if (_evoFocusT <= 0.001) _evoFocusTarget = null;
   }
 
-  // ── Glow halo ──
-  if (glowCol && (sel || st === 'unlocked')) {
-    c.shadowColor   = `rgba(${glowCol},0.7)`;
-    c.shadowBlur    = sel ? 16 : 8;
+  const L = _evoCalcLayout();
+  const openT = Math.min(1, (now - _evoOpenTime) / 600); // 600ms entrance
+  const focusAlpha = 1 - _evoFocusT * 0.4; // dim background elements during focus
+
+  // Resize canvas to full screen
+  const dpr = window.devicePixelRatio||1;
+  if(evoCanvas.width !== L.W*dpr || evoCanvas.height !== L.H*dpr) {
+    evoCanvas.width = L.W*dpr; evoCanvas.height = L.H*dpr;
+    evoCanvas.style.width = L.W+'px'; evoCanvas.style.height = L.H+'px';
+    c.scale(dpr,dpr);
   }
+  c.clearRect(0,0,L.W,L.H);
 
-  // ── Background ──
-  c.fillStyle = bgCol;
-  c.fillRect(x, y, w, h);
-  c.shadowBlur = 0;
+  // ── Dark base ──
+  c.fillStyle = '#07090E';
+  c.fillRect(0,0,L.W,L.H);
 
-  // ── Left accent bar (3px) ──
-  c.fillStyle = accentCol;
-  c.fillRect(x, y, 3, h);
+  // ── Hex grid background ──
+  c.globalAlpha = focusAlpha;
+  _evoDrawBgGrid(c,L);
 
-  // ── Corner bracket decoration ──
-  const B = 7;
-  c.strokeStyle = accentCol;
-  c.lineWidth = st === 'locked' ? 0.7 : 1.5;
-  // top-left
-  c.beginPath(); c.moveTo(x+B+3, y+0.5); c.lineTo(x+0.5, y+0.5); c.lineTo(x+0.5, y+B+3); c.stroke();
-  // top-right
-  c.beginPath(); c.moveTo(x+w-B-3, y+0.5); c.lineTo(x+w-0.5, y+0.5); c.lineTo(x+w-0.5, y+B+3); c.stroke();
-  // bottom-left
-  c.beginPath(); c.moveTo(x+B+3, y+h-0.5); c.lineTo(x+0.5, y+h-0.5); c.lineTo(x+0.5, y+h-B-3); c.stroke();
-  // bottom-right
-  c.beginPath(); c.moveTo(x+w-B-3, y+h-0.5); c.lineTo(x+w-0.5, y+h-0.5); c.lineTo(x+w-0.5, y+h-B-3); c.stroke();
+  // ── Scanlines ──
+  c.fillStyle = 'rgba(0,0,0,0.08)';
+  for(let y=0;y<L.H;y+=4) c.fillRect(0,y,L.W,1);
 
-  // ── Pixel dot pattern (subtle) in bg ──
-  if (st !== 'locked') {
-    c.fillStyle = `rgba(${glowCol||'100,120,140'},0.06)`;
-    for (let dx = 10; dx < w-6; dx += 8) {
-      for (let dy = 6; dy < h-4; dy += 8) {
-        c.fillRect(x+dx, y+dy, 1, 1);
-      }
-    }
-  }
+  // ── Branch glow zones ──
+  _evoDrawBranchZones(c,L,EVO);
+  c.globalAlpha = 1;
 
-  // ── Node code ID (top-left) ──
-  c.font = '8px "Share Tech Mono", monospace';
-  c.fillStyle = st === 'locked' ? '#101820' : 'rgba(100,130,160,0.4)';
-  c.textAlign = 'left';
-  c.fillText(curCodes()[n.id] || n.id.toUpperCase(), x+6, y+11);
+  // ── Connections ──
+  _evoDrawConnections(c,L,EVO,now,openT);
 
-  // ── Status badge (top-right) ──
-  c.font = '700 8px "Share Tech Mono", monospace';
-  c.fillStyle = statusCol;
-  c.textAlign = 'right';
-  c.fillText(statusTxt, x+w-5, y+11);
+  // ── CORE hex ──
+  c.globalAlpha = focusAlpha;
+  _evoDrawCore(c,L,EVO,now,openT);
+  c.globalAlpha = 1;
 
-  // ── Separator line ──
-  c.strokeStyle = `rgba(${glowCol||'20,30,45'},0.35)`;
-  c.lineWidth = 0.5;
-  c.beginPath(); c.moveTo(x+4, y+15); c.lineTo(x+w-4, y+15); c.stroke();
+  // ── Nodes ──
+  const nodes = curNodes();
+  nodes.forEach(n => _evoDrawNode(c,n,L,EVO,now,openT));
 
-  // ── Main label ──
-  c.font = '700 15px "Barlow Condensed", sans-serif';
-  c.fillStyle = labelCol;
-  c.textAlign = 'center';
-  // Glow text for active
-  if (st !== 'locked' && glowCol) {
-    c.shadowColor = `rgba(${glowCol},0.6)`;
-    c.shadowBlur  = 6;
-  }
-  c.fillText(n.label, x+w/2, y+h*0.56);
-  c.shadowBlur = 0;
+  // ── Floating detail card ──
+  if(selectedEvo) _evoDrawDetailCard(c,L,EVO,now);
 
-  // ── Description ──
-  c.font = '8px "Share Tech Mono", monospace';
-  c.fillStyle = descCol;
-  c.fillText(n.desc, x+w/2, y+h-7);
-
-  c.textAlign = 'left';
+  // ── Title + counter ──
+  _evoDrawHUD(c,L,EVO);
 }
 
-function onEvoClick(e) {
-  const rect = evoCanvas.getBoundingClientRect();
-  const mx = (e.clientX - rect.left) * (EVO_W / rect.width);
-  const my = (e.clientY - rect.top)  * (EVO_H / rect.height);
-  for (const n of curNodes()) {
-    if (mx >= n.x && mx <= n.x+NW && my >= n.y && my <= n.y+NH) {
-      if (nodeState(n) === 'available') {
-        selectedEvo = n.id;
-        document.getElementById('evoWarn').textContent = '';
-        drawEvoTree();
-      } else if (nodeState(n) === 'unlocked') {
-        document.getElementById('evoWarn').textContent = '/ 该节点已激活';
+// ── Background hex grid ──
+function _evoDrawBgGrid(c,L) {
+  const gs = L.hexR * 1.8;
+  c.strokeStyle = 'rgba(0,220,160,0.025)';
+  c.lineWidth = 0.5;
+  const cols = Math.ceil(L.W/gs)+2, rows = Math.ceil(L.H/(gs*0.866))+2;
+  for(let r=0;r<rows;r++){
+    for(let q=0;q<cols;q++){
+      const ox = q*gs + (r%2)*gs*0.5;
+      const oy = r*gs*0.866;
+      _evoHexPath(c, ox, oy, gs*0.48);
+      c.stroke();
+    }
+  }
+}
+
+// ── Branch glow zones ──
+function _evoDrawBranchZones(c,L,EVO) {
+  const branches = ['laser','missile','mobility'];
+  const angles = [
+    {dx:-0.866,dy:-0.5},  // laser: upper-left
+    {dx:0.866,dy:-0.5},   // missile: upper-right
+    {dx:0,dy:1},           // mobility: down
+  ];
+  branches.forEach((b,i)=>{
+    const bc = _evoBranchCol(b,EVO);
+    const gx = L.cx + angles[i].dx * L.sp * 1.5;
+    const gy = L.cy + angles[i].dy * L.sp * 1.5;
+    const grad = c.createRadialGradient(gx,gy,0, gx,gy, L.sp*2.5);
+    grad.addColorStop(0, `rgba(${bc.rgb},0.06)`);
+    grad.addColorStop(1, 'rgba(0,0,0,0)');
+    c.fillStyle = grad;
+    c.fillRect(0,0,L.W,L.H);
+  });
+}
+
+// ── Connection lines ──
+function _evoDrawConnections(c,L,EVO,now,openT) {
+  const nodes = curNodes();
+  nodes.forEach(n => {
+    n.req.forEach(rid => {
+      const rn = nodes.find(x=>x.id===rid);
+      if(!rn) return;
+      const unlRn = unlocked.has(rid), unlN = unlocked.has(n.id);
+      const bc = _evoBranchCol(n.branch,EVO);
+      const isCross = rn.branch !== n.branch;
+
+      let lineCol, lineW, dash, alpha;
+      if(unlN) { lineCol=EVO.unlocked; lineW=2.5; dash=[]; alpha=0.85; }
+      else if(unlRn) { lineCol=bc.col; lineW=1.8; dash=[6,4]; alpha=0.7; }
+      else { lineCol=EVO.locked; lineW=1; dash=[3,6]; alpha=0.4; }
+
+      const p1 = _evoNodeRenderPos(rn,L,now);
+      const p2 = _evoNodeRenderPos(n,L,now);
+
+      // Entrance animation: fade in with ring distance
+      const maxD = Math.max(Math.abs(n.dx),Math.abs(n.dy),Math.abs(rn.dx),Math.abs(rn.dy));
+      const nodeOpenT = Math.max(0, Math.min(1, (openT*3 - maxD*0.3)));
+      if(nodeOpenT<=0) return;
+
+      c.save();
+      c.globalAlpha = alpha * nodeOpenT;
+      c.strokeStyle = lineCol;
+      c.lineWidth = lineW;
+      c.setLineDash(dash);
+      c.lineCap = 'round';
+
+      if(isCross) {
+        // Cross-branch: route through CORE center
+        c.beginPath();
+        c.moveTo(p1.x,p1.y);
+        c.lineTo(L.cx,L.cy);
+        c.lineTo(p2.x,p2.y);
+        c.stroke();
       } else {
-        document.getElementById('evoWarn').textContent = '/ 需要先解锁前置节点';
+        c.beginPath();
+        c.moveTo(p1.x,p1.y);
+        c.lineTo(p2.x,p2.y);
+        c.stroke();
+      }
+
+      // Flowing light dot on unlocked paths
+      if(unlN && dash.length===0) {
+        c.setLineDash([]);
+        const t = (now%2000)/2000;
+        let dotX, dotY;
+        if(isCross) {
+          // Two segments
+          if(t<0.5) {
+            const tt=t*2;
+            dotX=p1.x+(L.cx-p1.x)*tt; dotY=p1.y+(L.cy-p1.y)*tt;
+          } else {
+            const tt=(t-0.5)*2;
+            dotX=L.cx+(p2.x-L.cx)*tt; dotY=L.cy+(p2.y-L.cy)*tt;
+          }
+        } else {
+          dotX=p1.x+(p2.x-p1.x)*t; dotY=p1.y+(p2.y-p1.y)*t;
+        }
+        c.fillStyle = EVO.unlocked;
+        c.shadowColor = EVO.unlocked;
+        c.shadowBlur = 8;
+        c.beginPath(); c.arc(dotX,dotY,3,0,Math.PI*2); c.fill();
+        c.shadowBlur = 0;
+      }
+      c.restore();
+    });
+  });
+
+  // ── Dependency particles (white orbs on all connections) ──
+  _evoDrawDependencyParticles(c,L,EVO,now,openT);
+}
+
+// ── Dependency Particles ──
+function _evoDrawDependencyParticles(c,L,EVO,now,openT) {
+  const nodes = curNodes();
+  const cycleMs = 5000;  // 5s per round trip
+  const particleCount = 1;  // particles per connection
+
+  nodes.forEach(n => {
+    n.req.forEach(rid => {
+      const rn = nodes.find(x=>x.id===rid);
+      if(!rn) return;
+
+      const maxD = Math.max(Math.abs(n.dx),Math.abs(n.dy),Math.abs(rn.dx),Math.abs(rn.dy));
+      const nodeOpenT = Math.max(0, Math.min(1, (openT*3 - maxD*0.3)));
+      if(nodeOpenT<=0) return;
+
+      const isCross = rn.branch !== n.branch;
+      const p1 = _evoNodeRenderPos(rn,L,now);
+      const p2 = _evoNodeRenderPos(n,L,now);
+
+      for(let i=0; i<particleCount; i++) {
+        const offset = i / particleCount;
+        const cycleT = ((now + offset * cycleMs) % cycleMs) / cycleMs;
+        // Back-and-forth: sin wave maps 0→1→0
+        const phase = Math.abs(Math.sin(cycleT * Math.PI));
+
+        let px, py;
+        if(isCross) {
+          // Two segments: p1→CORE→p2
+          const mid = {x: L.cx, y: L.cy};
+          const d1 = Math.sqrt((mid.x-p1.x)**2 + (mid.y-p1.y)**2);
+          const d2 = Math.sqrt((p2.x-mid.x)**2 + (p2.y-mid.y)**2);
+          const total = d1 + d2;
+          const ratio = d1 / total;
+          if(phase < ratio) {
+            // First segment
+            const t = phase / ratio;
+            px = p1.x + (mid.x - p1.x) * t;
+            py = p1.y + (mid.y - p1.y) * t;
+          } else {
+            // Second segment
+            const t = (phase - ratio) / (1 - ratio);
+            px = mid.x + (p2.x - mid.x) * t;
+            py = mid.y + (p2.y - mid.y) * t;
+          }
+        } else {
+          px = p1.x + (p2.x - p1.x) * phase;
+          py = p1.y + (p2.y - p1.y) * phase;
+        }
+
+        // Draw particle
+        const alpha = 0.2 + 0.3 * Math.sin(phase * Math.PI);
+        c.save();
+        c.globalAlpha = alpha * nodeOpenT;
+        c.fillStyle = '#FFFFFF';
+        c.shadowColor = '#FFFFFF';
+        c.shadowBlur = 6;
+        c.beginPath();
+        c.arc(px, py, 2.5, 0, Math.PI*2);
+        c.fill();
+        c.restore();
+      }
+    });
+  });
+
+  // Core to initial nodes (nodes with no prerequisites)
+  _evoDrawCoreToInitialParticles(c,L,EVO,now,openT);
+}
+
+// ── Core to Initial Nodes Particles ──
+function _evoDrawCoreToInitialParticles(c,L,EVO,now,openT) {
+  const nodes = curNodes();
+  const cycleMs = 3000;  // 3s per round trip
+
+  nodes.forEach(n => {
+    if(n.req.length > 0) return;  // Skip non-initial nodes
+
+    const maxD = Math.max(Math.abs(n.dx), Math.abs(n.dy));
+    const nodeOpenT = Math.max(0, Math.min(1, (openT*3 - maxD*0.3)));
+    if(nodeOpenT<=0) return;
+
+    const p1 = {x: L.cx, y: L.cy};  // CORE center
+    const p2 = _evoNodeRenderPos(n,L,now);
+
+    const cycleT = (now % cycleMs) / cycleMs;
+    const phase = Math.abs(Math.sin(cycleT * Math.PI));
+
+    const px = p1.x + (p2.x - p1.x) * phase;
+    const py = p1.y + (p2.y - p1.y) * phase;
+
+    // Draw particle
+    const alpha = 0.25 + 0.35 * Math.sin(phase * Math.PI);
+    c.save();
+    c.globalAlpha = alpha * nodeOpenT;
+    c.fillStyle = '#FFFFFF';
+    c.shadowColor = '#FFFFFF';
+    c.shadowBlur = 8;
+    c.beginPath();
+    c.arc(px, py, 3, 0, Math.PI*2);
+    c.fill();
+    c.restore();
+  });
+}
+
+// ── CORE hex ──
+function _evoDrawCore(c,L,EVO,now,openT) {
+  if(openT<=0) return;
+  const pulse = 0.7+0.3*Math.sin(now*0.003);
+  const r = L.hexR*1.1*Math.min(1,openT*2);
+
+  c.save();
+  // Glow
+  c.shadowColor = 'rgba(255,184,48,0.5)';
+  c.shadowBlur = 15*pulse;
+  _evoHexPath(c,L.cx,L.cy,r);
+  c.fillStyle = 'rgba(20,16,8,0.9)';
+  c.fill();
+  c.shadowBlur=0;
+
+  // Border
+  _evoHexPath(c,L.cx,L.cy,r);
+  c.strokeStyle = `rgba(255,184,48,${0.4+0.2*pulse})`;
+  c.lineWidth = 2;
+  c.stroke();
+
+  // Inner hex pattern
+  _evoHexPath(c,L.cx,L.cy,r*0.55);
+  c.strokeStyle = 'rgba(255,184,48,0.15)';
+  c.lineWidth = 1;
+  c.stroke();
+
+  // Text
+  c.font = `700 ${Math.floor(r*0.38)}px "Share Tech Mono", monospace`;
+  c.fillStyle = `rgba(255,184,48,${0.6+0.2*pulse})`;
+  c.textAlign='center'; c.textBaseline='middle';
+  c.fillText('CORE', L.cx, L.cy);
+  c.textBaseline='alphabetic';
+  c.restore();
+}
+
+// ── Single hex node ──
+function _evoDrawNode(c,n,L,EVO,now,openT) {
+  const st = nodeState(n);
+  const sel = selectedEvo===n.id;
+  const hov = _evoHoverNode===n.id && !sel;
+  const bc = _evoBranchCol(n.branch,EVO);
+  const pos = _evoNodeRenderPos(n,L,now);
+  const blink = Math.floor(now/420)%2===0;
+
+  // Entrance animation
+  const dist = Math.sqrt(n.dx*n.dx + n.dy*n.dy);
+  const nodeOpenT = Math.max(0, Math.min(1, (openT*3 - dist*0.25)));
+  if(nodeOpenT<=0) return;
+
+  const scale = sel ? 1.25 : hov ? 1.08 : 1.0;
+  const r = L.hexR * scale * nodeOpenT;
+  const pulse = 0.6+0.4*Math.sin(now*0.004);
+
+  c.save();
+
+  // ── Focus blur for non-selected nodes ──
+  if(_evoFocusT > 0.01 && !sel) {
+    c.filter = `blur(${(_evoFocusT*2.5).toFixed(1)}px)`;
+    c.globalAlpha = 1 - _evoFocusT*0.3;
+  }
+
+  // ── Determine colors ──
+  let bgCol, borderCol, labelCol, glowRgb;
+  if(st==='unlocked') {
+    bgCol='rgba(0,40,20,0.85)'; borderCol=EVO.unlocked; labelCol=EVO.unlocked; glowRgb=EVO.unlockedRgb;
+  } else if(st==='available') {
+    bgCol = sel ? `rgba(${bc.rgb},0.2)` : 'rgba(10,14,22,0.88)';
+    borderCol = bc.col; labelCol = sel ? '#FFF' : bc.col; glowRgb = bc.rgb;
+  } else {
+    bgCol='rgba(6,8,14,0.8)'; borderCol=EVO.locked; labelCol=EVO.locked; glowRgb=null;
+  }
+
+  // ── Glow ──
+  if(glowRgb && (sel || hov || st==='unlocked' || st==='available')) {
+    const glowAlpha = sel ? 0.8 : hov ? 0.6 : st==='unlocked' ? 0.5 : 0.3*pulse;
+    c.shadowColor = `rgba(${glowRgb},${glowAlpha})`;
+    c.shadowBlur = sel ? 20 : hov ? 14 : st==='unlocked' ? 10 : 6*pulse;
+  }
+
+  // ── Fill ──
+  _evoHexPath(c,pos.x,pos.y,r);
+  c.fillStyle = bgCol;
+  c.fill();
+  c.shadowBlur=0;
+
+  // ── Border ──
+  _evoHexPath(c,pos.x,pos.y,r);
+  if(st==='locked') { c.setLineDash([4,4]); }
+  else { c.setLineDash([]); }
+  c.strokeStyle = borderCol;
+  c.lineWidth = sel ? 2.5 : st==='unlocked' ? 2 : 1.2;
+  c.stroke();
+  c.setLineDash([]);
+
+  // ── Inner hex accent ──
+  if(st!=='locked') {
+    _evoHexPath(c,pos.x,pos.y,r*0.72);
+    c.strokeStyle = `rgba(${glowRgb},0.12)`;
+    c.lineWidth = 0.8;
+    c.stroke();
+  }
+
+  // ── Code (top) ──
+  const codeSize = Math.max(7, Math.floor(r*0.2));
+  c.font = `${codeSize}px "Share Tech Mono", monospace`;
+  c.fillStyle = st==='locked' ? 'rgba(30,40,55,0.5)' : `rgba(${glowRgb||'100,130,160'},0.5)`;
+  c.textAlign='center';
+  c.fillText(curCodes()[n.id]||n.id.toUpperCase(), pos.x, pos.y - r*0.35);
+
+  // ── Label (center) ──
+  const labelSize = Math.max(10, Math.floor(r*0.36));
+  c.font = `700 ${labelSize}px "Barlow Condensed", sans-serif`;
+  c.fillStyle = labelCol;
+  if(glowRgb && st!=='locked') {
+    c.shadowColor = `rgba(${glowRgb},0.5)`;
+    c.shadowBlur = 4;
+  }
+  c.fillText(n.label, pos.x, pos.y + r*0.08);
+  c.shadowBlur=0;
+
+  // ── Status (bottom) ──
+  let statusTxt;
+  if(st==='unlocked') statusTxt='■ OK';
+  else if(st==='available') statusTxt = sel ? (blink?'▶ SEL':'  SEL') : '○ RDY';
+  else statusTxt='× LCK';
+
+  c.font = `700 ${codeSize}px "Share Tech Mono", monospace`;
+  c.fillStyle = st==='unlocked' ? EVO.unlocked : st==='available' ? bc.col : EVO.locked;
+  c.fillText(statusTxt, pos.x, pos.y + r*0.55);
+
+  c.textAlign='left';
+  c.restore();
+}
+
+// ── Floating detail card ──
+function _evoDrawDetailCard(c,L,EVO,now) {
+  const sn = curNodes().find(n=>n.id===selectedEvo);
+  if(!sn) return;
+  const bc = _evoBranchCol(sn.branch,EVO);
+  const pos = _evoNodeRenderPos(sn,L,now);
+
+  // Card dimensions
+  const cw = Math.min(240, L.W*0.2);
+  const ch = 130;
+
+  // Position: try right side of node, then left if too close to edge
+  let cx = pos.x + L.hexR*1.6;
+  let cy = pos.y - ch*0.3;
+  if(cx + cw > L.W - 20) cx = pos.x - L.hexR*1.6 - cw;
+  if(cy < 20) cy = 20;
+  if(cy + ch > L.H - 20) cy = L.H - ch - 20;
+
+  c.save();
+
+  // Background
+  c.fillStyle = 'rgba(8,12,20,0.92)';
+  c.strokeStyle = bc.col;
+  c.lineWidth = 1.5;
+  c.shadowColor = `rgba(${bc.rgb},0.4)`;
+  c.shadowBlur = 12;
+  c.fillRect(cx,cy,cw,ch);
+  c.shadowBlur=0;
+  c.strokeRect(cx,cy,cw,ch);
+
+  // Top accent line
+  c.fillStyle = bc.col;
+  c.fillRect(cx,cy,cw,2);
+
+  const pad = 14;
+  let ly = cy + 20;
+
+  // Code
+  c.font = '8px "Share Tech Mono", monospace';
+  c.fillStyle = `rgba(${bc.rgb},0.6)`;
+  c.textAlign='left';
+  c.fillText(curCodes()[sn.id]||sn.id.toUpperCase(), cx+pad, ly);
+  ly += 18;
+
+  // Label
+  c.font = '700 16px "Barlow Condensed", sans-serif';
+  c.fillStyle = bc.col;
+  c.fillText(sn.label, cx+pad, ly);
+  ly += 16;
+
+  // Description
+  c.font = '10px "Share Tech Mono", monospace';
+  c.fillStyle = 'rgba(200,190,170,0.8)';
+  c.fillText(sn.desc, cx+pad, ly);
+  ly += 18;
+
+  // Prerequisites
+  if(sn.req.length>0) {
+    const reqNames = sn.req.map(r=>curNodes().find(x=>x.id===r)?.label||r).join(', ');
+    c.font = '8px "Share Tech Mono", monospace';
+    c.fillStyle = 'rgba(100,130,160,0.6)';
+    c.fillText(`前置: ${reqNames}`, cx+pad, ly);
+    ly += 14;
+  }
+
+  // Confirm prompt (blinking)
+  if(Math.floor(now/500)%2===0) {
+    c.font = '700 9px "Share Tech Mono", monospace';
+    c.fillStyle = bc.col;
+    c.fillText('[ CONFIRM INSTALL ]', cx+pad, ly+4);
+  }
+
+  c.restore();
+}
+
+// ── Title + counter HUD ──
+function _evoDrawHUD(c,L,EVO) {
+  // Top-left title
+  c.font = '11px "Share Tech Mono", monospace';
+  c.fillStyle = 'rgba(232,100,10,0.4)';
+  c.textAlign='left';
+  c.fillText('RHINE LAB · EVOLUTION PROTOCOL v3.0', 24, 30);
+
+  c.font = '700 22px "Share Tech Mono", monospace';
+  c.fillStyle = 'rgba(232,100,10,0.7)';
+  c.fillText('干员进化', 24, 56);
+
+  // Bottom-right counter
+  c.font = '9px "Share Tech Mono", monospace';
+  c.fillStyle = 'rgba(100,130,160,0.5)';
+  c.textAlign='right';
+  c.fillText(`${unlocked.size} / ${curNodes().length}  INSTALLED`, L.W-24, L.H-20);
+
+  // Branch legends (bottom-left)
+  const branches = [
+    {name:'LASER',   branch:'laser'},
+    {name:'MISSILE', branch:'missile'},
+    {name:'MOBILITY',branch:'mobility'},
+  ];
+  c.textAlign='left';
+  let ly = L.H - 60;
+  branches.forEach(b=>{
+    const bc = _evoBranchCol(b.branch,EVO);
+    c.fillStyle = bc.col;
+    c.fillRect(24,ly-6,8,8);
+    c.font = '8px "Share Tech Mono", monospace';
+    c.fillStyle = 'rgba(160,170,180,0.6)';
+    c.fillText(b.name, 38, ly+1);
+    ly += 16;
+  });
+
+  c.textAlign='left';
+}
+
+// ── Click handler ──
+function onEvoClick(e) {
+  // In debug mode, let drag take priority
+  if (debugMode && isDragging) return;
+
+  const L = _evoCalcLayout();
+  const rect = evoCanvas.getBoundingClientRect();
+  const mx = (e.clientX - rect.left);
+  const my = (e.clientY - rect.top);
+  const now = performance.now();
+
+  // Check nodes (reverse order so top-drawn nodes get priority)
+  const nodes = curNodes();
+  for(let i=nodes.length-1;i>=0;i--){
+    const n = nodes[i];
+    const pos = _evoNodeRenderPos(n,L,now);
+    if(_evoHitHex(mx,my,pos.x,pos.y,L.hexR*1.1)) {
+      const st = nodeState(n);
+      if(st==='available') {
+        selectedEvo = n.id;
+        document.getElementById('evoWarn').textContent='';
+        drawEvoTree();
+      } else if(st==='unlocked') {
+        document.getElementById('evoWarn').textContent='/ 该节点已激活';
+      } else {
+        document.getElementById('evoWarn').textContent='/ 需要先解锁前置节点';
       }
       return;
     }
   }
+  // Click on empty space: deselect
+  if(selectedEvo) { selectedEvo=null; drawEvoTree(); }
 }
 
 let evoRaf = null;
+let evoEventsInit = false;
 function startEvoRedraw() {
+  // Initialize debug events once
+  if (!evoEventsInit) {
+    initEvoDebugEvents();
+    evoEventsInit = true;
+  }
+  _evoOpenTime = performance.now();
   if (evoRaf) return;
   function loop() {
     if (!document.getElementById('evoScreen').classList.contains('show')) {
@@ -1182,19 +1496,19 @@ function selectDifficulty(id) {
 // ═══ DIFFICULTY DETAIL PANEL ═══
 const DIFFICULTY_DATA = {
   easy: {
-    initial: 0, spawn: '60s', growth: '60s', max: 3,
+    initial: 0, spawn: '30s', growth: '60s', max: 3,
     bulletCD: '10s', speed: '400ms', xp: '+0%', cap: 'Lv.5'
   },
   normal: {
-    initial: 1, spawn: '40s', growth: '30s', max: 5,
+    initial: 0, spawn: '20s', growth: '30s', max: 5,
     bulletCD: '8s', speed: '320ms', xp: '+0%', cap: 'Lv.8'
   },
   hard: {
-    initial: 1, spawn: '25s', growth: '20s', max: 8,
+    initial: 1, spawn: '12s', growth: '20s', max: 8,
     bulletCD: '6s', speed: '260ms', xp: '+25%', cap: 'Lv.10'
   },
   hell: {
-    initial: 2, spawn: '15s', growth: '15s', max: 12,
+    initial: 2, spawn: '8s', growth: '15s', max: 12,
     bulletCD: '4s', speed: '200ms', xp: '+50%', cap: 'Lv.15'
   },
   nightmare: {
@@ -1456,5 +1770,203 @@ function flash(msg) {
   el.textContent=msg; el.style.opacity='1';
   if(flashTimer) clearTimeout(flashTimer);
   flashTimer=setTimeout(()=>{el.style.opacity='0';},1800);
+}
+
+// ═══ EVO TREE DEBUG EDITOR ═══
+let debugMode = false;
+let draggedNode = null;
+let isDragging = false;
+let dragStartX = 0;
+let dragStartY = 0;
+
+// 切换调试模式
+function toggleEvoDebug() {
+  debugMode = !debugMode;
+  const panel = document.getElementById('evoDebugPanel');
+  panel.style.display = debugMode ? 'block' : 'none';
+  if (debugMode) {
+    updateDebugDisplay();
+    renderNodeList();
+  }
+}
+
+// 更新调试显示
+function updateDebugDisplay() {
+  if (!selectedEvo) {
+    document.getElementById('debugSelectedNode').textContent = '—';
+    document.getElementById('debugDx').textContent = '0.00';
+    document.getElementById('debugDy').textContent = '0.00';
+    return;
+  }
+  const node = curNodes().find(n => n.id === selectedEvo);
+  if (node) {
+    document.getElementById('debugSelectedNode').textContent = `${node.id} [${node.label}]`;
+    document.getElementById('debugDx').textContent = node.dx.toFixed(2);
+    document.getElementById('debugDy').textContent = node.dy.toFixed(2);
+  }
+  renderNodeList();
+}
+
+// 渲染节点列表
+function renderNodeList() {
+  const container = document.getElementById('debugNodeList');
+  if (!container) return;
+  container.innerHTML = '';
+  curNodes().forEach(n => {
+    const el = document.createElement('div');
+    el.className = 'evo-debug-node-item' + (n.id === selectedEvo ? ' active' : '');
+    el.textContent = `${n.id} ${n.label}`;
+    el.onclick = () => {
+      selectedEvo = n.id;
+      updateDebugDisplay();
+      drawEvoTree();
+    };
+    container.appendChild(el);
+  });
+}
+
+// 微调坐标
+function adjustDelta(dDx, dDy) {
+  if (!selectedEvo) return;
+  const node = EVO_NODES.find(n => n.id === selectedEvo);
+  if (node) {
+    node.dx = Math.round((node.dx + dDx) * 100) / 100;
+    node.dy = Math.round((node.dy + dDy) * 100) / 100;
+    updateDebugDisplay();
+    drawEvoTree();
+  }
+}
+
+// 重置坐标
+function resetDelta() {
+  if (!selectedEvo) return;
+  const node = EVO_NODES.find(n => n.id === selectedEvo);
+  if (node) {
+    node.dx = 0;
+    node.dy = 0;
+    updateDebugDisplay();
+    drawEvoTree();
+  }
+}
+
+// 导出配置到控制台
+function exportConfig() {
+  const nodes = EVO_NODES.map(n =>
+    `  {id:'${n.id}', label:'${n.label}', desc:'${n.desc}', req:[${n.req.map(r=>`'${r}'`).join(',')}], branch:'${n.branch}', dx:${n.dx.toFixed(1)}, dy:${n.dy.toFixed(1)}}`
+  );
+  const output = `const EVO_NODES = [\n${nodes.join(',\n')}\n];`;
+  console.log(output);
+  navigator.clipboard.writeText(output).then(() => {
+    alert('配置已导出到控制台并复制到剪贴板！');
+  }).catch(() => {
+    alert('配置已导出到控制台（剪贴板复制失败，请手动从控制台复制）');
+  });
+}
+
+// 像素坐标转 delta 坐标
+function pixelToDelta(px, py, cx, cy, sp) {
+  return {
+    dx: (px - cx) / sp,
+    dy: (py - cy) / sp
+  };
+}
+
+// 鼠标事件处理 - 拖拽节点
+function onEvoMouseDown(e) {
+  const L = _evoCalcLayout();
+  const rect = evoCanvas.getBoundingClientRect();
+  const mx = e.clientX - rect.left;
+  const my = e.clientY - rect.top;
+  const now = performance.now();
+
+  // Check for node click (for hover detection)
+  const nodes = curNodes();
+  for (let i = nodes.length - 1; i >= 0; i--) {
+    const n = nodes[i];
+    const pos = _evoNodeRenderPos(n, L, now);
+    if (_evoHitHex(mx, my, pos.x, pos.y, L.hexR * 1.2)) {
+      _evoHoverNode = n;
+      break;
+    }
+  }
+
+  // In debug mode, let drag take priority
+  if (!debugMode) return false;
+  if (_evoHoverNode) {
+    draggedNode = _evoHoverNode;
+    dragStartX = mx;
+    dragStartY = my;
+    isDragging = false;
+    selectedEvo = _evoHoverNode.id;
+    updateDebugDisplay();
+    drawEvoTree();
+    e.preventDefault();
+    return true;
+  }
+  return false;
+}
+
+function onEvoMouseMove(e) {
+  const L = _evoCalcLayout();
+  const rect = evoCanvas.getBoundingClientRect();
+  const mx = e.clientX - rect.left;
+  const my = e.clientY - rect.top;
+  const now = performance.now();
+
+  // Always track mouse position
+  _evoMouseX = mx;
+  _evoMouseY = my;
+
+  // Detect hover node
+  _evoHoverNode = null;
+  for (let i = curNodes().length - 1; i >= 0; i--) {
+    const n = curNodes()[i];
+    const pos = _evoNodeRenderPos(n, L, now);
+    if (_evoHitHex(mx, my, pos.x, pos.y, L.hexR * 1.1)) {
+      _evoHoverNode = n;
+      break;
+    }
+  }
+
+  // Debug drag logic
+  if (!debugMode || !draggedNode) return;
+
+  // 检测是否开始拖拽（移动距离超过 5 像素）
+  if (!isDragging) {
+    const dx = mx - dragStartX;
+    const dy = my - dragStartY;
+    if (dx * dx + dy * dy > 25) { // 5^2 = 25
+      isDragging = true;
+    } else {
+      return; // 移动距离不足，不更新
+    }
+  }
+
+  const delta = pixelToDelta(mx, my, L.cx, L.cy, L.sp);
+  draggedNode.dx = Math.round(delta.dx * 100) / 100;
+  draggedNode.dy = Math.round(delta.dy * 100) / 100;
+  updateDebugDisplay();
+  drawEvoTree();
+}
+
+function onEvoMouseUp() {
+  isDragging = false;
+  draggedNode = null;
+}
+
+function onEvoMouseLeave() {
+  _evoMouseX = -1;
+  _evoMouseY = -1;
+  _evoHoverNode = null;
+}
+
+// 绑定鼠标事件到 canvas
+function initEvoDebugEvents() {
+  if (evoCanvas) {
+    evoCanvas.addEventListener('mousedown', onEvoMouseDown);
+    evoCanvas.addEventListener('mousemove', onEvoMouseMove);
+    evoCanvas.addEventListener('mouseup', onEvoMouseUp);
+    evoCanvas.addEventListener('mouseleave', onEvoMouseLeave);
+  }
 }
 

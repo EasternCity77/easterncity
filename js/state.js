@@ -17,7 +17,6 @@ let enemyTickT=0;  // separate interpolation for enemies (independent clock)
 let deathTime=0;   // timestamp when death started (0 = not dying)
 let deathShakeX=0, deathShakeY=0;
 let enemyAccum=0;          // ms accumulator for enemy movement (independent of player speed)
-const ENEMY_TICK_BASE=320; // enemies move every 320ms regardless of player speed
 
 // ─ Combo ─
 let combo=0, comboMult=1, lastFoodTS=0, maxCombo=0;

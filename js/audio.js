@@ -250,6 +250,14 @@ const Audio = (() => {
     osc('sine', 1650, t + 0.04, 0.05, 0.08);
   }
 
+  // Cooldown ready — crisp ascending chime
+  function sfxCooldownReady() {
+    if (_sfxGuard()) return;
+    const t = ac.currentTime;
+    osc('sine', 1400, t, 0.08, 0.10, null, 1800);
+    osc('sine', 2100, t + 0.05, 0.06, 0.08);
+  }
+
   // ── SKILL SOUNDS ──
   // Time Slow activation — descending sweep with reverb feel
   function sfxTimeSlow() {
@@ -490,6 +498,7 @@ const Audio = (() => {
     sfxEnemyDeath, sfxLevelUp, sfxGameOver, sfxThreat,
     sfxSpeedUp, sfxSpeedDown, sfxXP,
     sfxTimeSlow, sfxTimeSlowEnd, sfxMissileLock, sfxMissileFire, sfxMissileExplode,
+    sfxCooldownReady,
   };
 })();
 
