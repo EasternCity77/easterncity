@@ -89,7 +89,8 @@ let _evoLayout = {cx:0,cy:0,sp:0,hexR:0};
 
 function _evoCalcLayout() {
   const W = window.innerWidth, H = window.innerHeight;
-  let hexR = Math.min(W,H) * 0.048;
+  let hexR = Math.min(W,H) * (typeof isMobile !== 'undefined' && isMobile ? 0.065 : 0.048);
+  hexR = Math.max(hexR, 22); // minimum touch target size
   let sp = hexR * 2.6;
   let cx = W * 0.5, cy = H * 0.44;
 
@@ -779,6 +780,10 @@ function goToHome() {
   gameActive = false; deathTime = 0;
   Audio.stopAllBgm();
   if (animId) { cancelAnimationFrame(animId); animId = null; }
+  // Mobile: hide touch controls, unlock orientation
+  if (typeof showTouchControls === 'function') showTouchControls(false);
+  if (typeof unlockOrientation === 'function') unlockOrientation();
+  document.body.classList.remove('game-active');
   // 3D cleanup
   if (gameMode === '3d') { cube3D.active = false; document.getElementById('minimap3d').classList.remove('show'); }
   const goEl = document.getElementById('goScreen');
@@ -1210,6 +1215,9 @@ function deathTransition() {
   // Schedule game over screen after animation completes
   setTimeout(() => {
     gameActive = false;
+    // Mobile: hide touch controls
+    if (typeof showTouchControls === 'function') showTouchControls(false);
+    document.body.classList.remove('game-active');
     _showGameOverScreen();
   }, 1600);
 }
@@ -1487,6 +1495,11 @@ function selectDifficulty(id) {
     card.classList.toggle('active', card.dataset.diff === id);
   });
 
+  // Mobile: show detail panel on tap (hover doesn't work on touch)
+  if (typeof isMobile !== 'undefined' && isMobile) {
+    showDiffDetail(id);
+  }
+
   // Optional: Save to localStorage
   try {
     localStorage.setItem('hexsnake_difficulty', id);
@@ -1550,12 +1563,13 @@ function showDiffDetail(id) {
 
 function hideDiffDetail() {
   if (hideDetailTimer) clearTimeout(hideDetailTimer);
+  const delay = (typeof isMobile !== 'undefined' && isMobile) ? 0 : 1000;
   hideDetailTimer = setTimeout(() => {
     const panel = document.getElementById('diffDetailPanel');
     if (panel) panel.classList.remove('show');
     currentDetailDiff = null;
     hideDetailTimer = null;
-  }, 1000);
+  }, delay);
 }
 
 // ── Radar chart: auto-computed from DIFFICULTY_DATA ──

@@ -105,7 +105,8 @@ const FOOD_EAT_EFFECTS = {
 
 
 function resizeGame() {
-  const dpr = window.devicePixelRatio||1;
+  const _rawDpr = window.devicePixelRatio||1;
+  const dpr = Math.min(_rawDpr, window.perfLevel==='low'?1.5:window.perfLevel==='medium'?2:_rawDpr);
   const W=window.innerWidth, H=window.innerHeight;
   canvas.style.width=W+'px'; canvas.style.height=H+'px';
   canvas.width=W*dpr; canvas.height=H*dpr;
@@ -142,6 +143,11 @@ function startGame() {
   gCols=20; gRows=20; recalcCell(); resizeGame();
   score=0; level=1; xp=0; xpNeeded=5; gameTime=0;
   gamePaused=false; gameActive=true; deathTime=0;
+
+  // Mobile: show touch controls, lock landscape, mark body
+  if (typeof showTouchControls === 'function') showTouchControls(true);
+  if (typeof lockLandscape === 'function') lockLandscape();
+  document.body.classList.add('game-active');
 
   const mx=Math.floor(gCols/2), my=Math.floor(gRows/2);
   player={
@@ -201,9 +207,9 @@ function _expandOverlayTransition(btn, startFn, opts) {
   const overlayColor = isSpring ? '#CC2020' : 'var(--amber)';
   const overlayFadeColor = isSpring ? '#A01818' : '#DEDAD0';
 
+  const rect = btn.getBoundingClientRect();
   if (opts.preHook) opts.preHook();
   btn.style.pointerEvents = 'none';
-  const rect = btn.getBoundingClientRect();
 
   overlay.className = '';
   overlay.style.cssText = `
@@ -459,6 +465,8 @@ function loop(ts) {
   animId=requestAnimationFrame(loop);
   const dt=Math.min(ts-lastFrame, 80);
   lastFrame=ts;
+  // Mobile FPS monitoring for adaptive performance
+  if(window._touchFpsCheck) window._touchFpsCheck(ts);
 
   // ── Time Stop Handling ──
   if(gameFrozen) {
@@ -988,9 +996,12 @@ function fireLaser() {
         score+=15*player.upg.laserDmg;
         laserHits++;
         Audio.sfxEnemyHit();
+        const willKill = e.body.length <= player.upg.laserDmg;
+        const [hitPx, hitPy] = gridToPixel(x, y, cellSize);
+        createLaserHitEffect(hitPx, hitPy, willKill);
         for(let d=0;d<player.upg.laserDmg;d++){
           if(e.body.length>1) e.body.pop();
-          else{score+=50;killCount++;Audio.sfxEnemyDeath();enemies.splice(ei,1);break;}
+          else{score+=50;killCount++;Audio.sfxEnemyDeath();missileShakeTime=120;missileShakeIntensity=3;enemies.splice(ei,1);break;}
         }
         if(player.upg.slow&&enemies[ei]) enemies[ei].slowTimer=3000;
       }
@@ -1299,6 +1310,31 @@ function createExplosion(px, py) {
   });
 }
 
+function createLaserHitEffect(px, py, killed) {
+  const T = getTheme().colors;
+  const count = killed ? 12 : 8;
+  const cols = [T.laser, T.laserCore, '#FFFFFF'];
+  for (let i = 0; i < count; i++) {
+    const angle = (Math.PI * 2 / count) * i + (Math.random() - 0.5) * 0.4;
+    const spd = 1.5 + Math.random() * 2.5;
+    foodParticles.push({
+      x: px, y: py,
+      vx: Math.cos(angle) * spd,
+      vy: Math.sin(angle) * spd,
+      life: 1.0,
+      decay: 0.05 + Math.random() * 0.03,
+      color: cols[i % 3],
+      size: 1 + Math.random() * 1.5
+    });
+  }
+  foodParticles.push({
+    x: px, y: py, vx: 0, vy: 0,
+    life: 1.0, decay: killed ? 0.07 : 0.1,
+    color: T.laserCore,
+    isFlash: true, flashRadius: killed ? 5 : 3
+  });
+}
+
 // ── Time Stop System ──
 function startFreeze(duration, onComplete) {
   gameFrozen = true;
@@ -1319,6 +1355,34 @@ function processQueuedSkill() {
 
 
 // ═══ INPUT ═══
+
+// Shared direction handler — called by keyboard and touch input
+function applyDirection(dir) {
+  if(!player || !player.alive) return;
+  const curDir = player.dir;
+  const rev = dir.x === -curDir.x && dir.y === -curDir.y;
+  if(!rev || player.upg.quickTurn || player.body.length === 1) player.ndir = dir;
+  // Early tick: if past 60% of interval, trigger tick now for snappy response
+  const now = performance.now();
+  if(tickT > 0.6 && player.alive && !gamePaused && now - lastTick > 60) {
+    gameTick(); lastTick = now;
+  }
+}
+
+// Shared skill handler — called by keyboard and touch input
+function activateSkill(type) {
+  if(gamePaused) return;
+  if(type === 'timeSlow') {
+    if(gameFrozen) queuedSkill = 'timeSlow';
+    else tryActivateTimeSlow();
+  } else if(type === 'missile') {
+    if(gameFrozen) queuedSkill = 'missile';
+    else tryActivateMissiles();
+  } else if(type === 'laser') {
+    fireLaser();
+  }
+}
+
 function onKey(e) {
   // F3: toggle evo tree debug editor (always active)
   if (e.key === 'F3') {
@@ -1361,30 +1425,14 @@ function onKey(e) {
             'ArrowLeft':{x:-1,y:0},'a':{x:-1,y:0},'A':{x:-1,y:0},
             'ArrowRight':{x:1,y:0},'d':{x:1,y:0},'D':{x:1,y:0}};
   const nd=dm[e.key];
-  if(nd){
-    const curDir=player.dir;
-    const rev=nd.x===-curDir.x&&nd.y===-curDir.y;
-    if(!rev||player.upg.quickTurn||player.body.length===1) player.ndir=nd;
-    // Early tick: if past 60% of interval, trigger tick now for snappy response
-    const now=performance.now();
-    if(tickT>0.6 && player.alive && !gamePaused && now-lastTick>60){
-      gameTick(); lastTick=now;
-    }
-    e.preventDefault(); return;
-  }
+  if(nd){ applyDirection(nd); e.preventDefault(); return; }
 
   // Skill input: buffer during freeze, execute normally otherwise
   if(gamePaused) return;
 
-  if(e.key==='k'||e.key==='K'){
-    if(gameFrozen) { queuedSkill = 'timeSlow'; e.preventDefault(); }
-    else { tryActivateTimeSlow(); e.preventDefault(); }
-  }
-  if(e.key==='l'||e.key==='L'){
-    if(gameFrozen) { queuedSkill = 'missile'; e.preventDefault(); }
-    else { tryActivateMissiles(); e.preventDefault(); }
-  }
-  if(e.key==='j'||e.key==='J'){fireLaser();e.preventDefault();}
+  if(e.key==='k'||e.key==='K'){ activateSkill('timeSlow'); e.preventDefault(); }
+  if(e.key==='l'||e.key==='L'){ activateSkill('missile'); e.preventDefault(); }
+  if(e.key==='j'||e.key==='J'){ activateSkill('laser'); e.preventDefault(); }
   if(e.key==='m'||e.key==='M'){toggleMute();e.preventDefault();}
   if(e.key==='F2'){debugLevelUp();e.preventDefault();}
 }

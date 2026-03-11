@@ -18,7 +18,8 @@ function makeMenuBg(canvasId) {
     const rect = parent ? parent.getBoundingClientRect() : null;
     W = (rect && rect.width > 0) ? rect.width : window.innerWidth;
     H = (rect && rect.height > 0) ? rect.height : window.innerHeight;
-    const dpr = window.devicePixelRatio || 1;
+    const _rawDpr = window.devicePixelRatio || 1;
+    const dpr = Math.min(_rawDpr, window.perfLevel==='low'?1:window.perfLevel==='medium'?1.5:_rawDpr);
     cv.width = W * dpr; cv.height = H * dpr;
     cv.style.width = W + 'px'; cv.style.height = H + 'px';
     cx.scale(dpr, dpr);
@@ -31,7 +32,8 @@ function makeMenuBg(canvasId) {
 
   // ── Floating geometric shapes ──
   const COLS = [C.r, C.y, C.c, C.g, C.am];
-  const shapes = Array.from({length:26}, () => ({
+  const _shapeCount = window.perfLevel==='low'?10:window.perfLevel==='medium'?18:26;
+  const shapes = Array.from({length:_shapeCount}, () => ({
     x: 0.42 + Math.random()*0.58,  // right 58% only (dark side)
     y: Math.random(),
     vx: (Math.random()-.5)*0.00008,
@@ -45,7 +47,8 @@ function makeMenuBg(canvasId) {
 
   // ── Data stream (falling chars) ──
   const CHARS = '01∞Ω△◆●◎∝∮∇ABCDF◈◉◫';
-  const streams = Array.from({length:16}, () => ({
+  const _streamCount = window.perfLevel==='low'?6:window.perfLevel==='medium'?10:16;
+  const streams = Array.from({length:_streamCount}, () => ({
     x: 0.42 + Math.random()*0.55,  // right side
     y: Math.random(),
     spd: 0.00022 + Math.random()*0.0005,
@@ -82,7 +85,8 @@ function makeMenuBg(canvasId) {
   let t = 0;
 
   // ── Phosphor bloom pulses ──
-  const blooms = Array.from({length:5}, () => ({
+  const _bloomCount = window.perfLevel==='low'?0:window.perfLevel==='medium'?2:5;
+  const blooms = Array.from({length:_bloomCount}, () => ({
     x: 0.5 + Math.random()*0.48,
     y: Math.random(),
     r: 20 + Math.random()*60,
@@ -662,12 +666,14 @@ function initMenuBg() {
     DemoGame.init();
     DemoGame.resize();
     
+    let _bgSkip = false;
     function loop() {
       const ss = document.getElementById('startScreen');
       if (!ss || ss.style.display === 'none') return;
+      // Mobile: 30fps (skip every other frame)
+      if (window.perfLevel !== 'high') { _bgSkip = !_bgSkip; if (_bgSkip) { menuBgRaf = requestAnimationFrame(loop); return; } }
       _menuBgInst.frame();
-      DemoGame.update();
-      DemoGame.render();
+      if (window.perfLevel === 'high') { DemoGame.update(); DemoGame.render(); }
       menuBgRaf = requestAnimationFrame(loop);
     }
     menuBgRaf = requestAnimationFrame(loop);
@@ -1030,7 +1036,8 @@ function makeFireworksWindow(canvasId) {
   }
 
   function explode(rocket) {
-    const count = 90 + Math.floor(Math.random() * 60);
+    const _maxBurst = window.perfLevel==='low'?40:window.perfLevel==='medium'?70:90;
+    const count = _maxBurst + Math.floor(Math.random() * Math.floor(_maxBurst*0.67));
     const particles = [];
     const isWillow = Math.random() < 0.3;
     for (let i = 0; i < count; i++) {
@@ -1183,12 +1190,15 @@ function initMenuBgSpring() {
 
     _fireworksInst = makeFireworksWindow('spWindowCanvas');
 
+    let _spSkip = false;
     function loop() {
       const spMain = document.getElementById('spMain');
       if (!spMain || !spMain.classList.contains('show')) {
         menuBgSpringStop();
         return;
       }
+      // Mobile: 30fps
+      if (window.perfLevel !== 'high') { _spSkip = !_spSkip; if (_spSkip) { _springMenuRaf = requestAnimationFrame(loop); return; } }
       if (_springBgInst) _springBgInst.frame();
       if (_fireworksInst) _fireworksInst.frame();
       _springMenuRaf = requestAnimationFrame(loop);

@@ -4,7 +4,7 @@
 // Constants, evolution tree definitions, node codes
 
 // ═══ CONSTANTS ═══
-const HUD_H         = 52;
+let   HUD_H         = 52;
 const BASE_TICK     = 120;
 const BULLET_TICK   = 130;
 const LASER_CD_BASE = 5000;

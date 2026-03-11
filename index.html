@@ -2,7 +2,7 @@
 <html lang="zh">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>HexSnake: Dimension Fold</title>
 <link rel="stylesheet" href="style.css">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg'/>">
@@ -61,6 +61,35 @@
 
 <div id="effectBar"></div>
 <div id="flashMsg"></div>
+
+<!-- ══ MOBILE TOUCH CONTROLS ══ -->
+<div id="touchControls" style="display:none">
+  <!-- D-Pad (left side) -->
+  <div class="dpad-container">
+    <button id="dpad-up" class="dpad-btn dpad-up" aria-label="Up"></button>
+    <button id="dpad-left" class="dpad-btn dpad-left" aria-label="Left"></button>
+    <button id="dpad-right" class="dpad-btn dpad-right" aria-label="Right"></button>
+    <button id="dpad-down" class="dpad-btn dpad-down" aria-label="Down"></button>
+  </div>
+  <!-- Skill buttons (right side) -->
+  <div class="skill-container">
+    <button id="btn-laser" class="skill-btn" aria-label="Laser">J</button>
+    <button id="btn-timeslow" class="skill-btn" aria-label="Time Slow">K</button>
+    <button id="btn-missile" class="skill-btn" aria-label="Missile">L</button>
+  </div>
+</div>
+
+<!-- ══ ROTATE DEVICE PROMPT ══ -->
+<div id="rotatePrompt">
+  <div class="rotate-inner">
+    <svg class="rotate-icon" viewBox="0 0 64 64" width="64" height="64">
+      <rect x="16" y="8" width="32" height="48" rx="4" fill="none" stroke="currentColor" stroke-width="2.5"/>
+      <path d="M52 32 l8-6 l0 12z" fill="currentColor"/>
+    </svg>
+    <p>请旋转设备至横屏</p>
+    <p style="font-size:12px;opacity:0.6">Rotate device to landscape</p>
+  </div>
+</div>
 
 <!-- ══ START SCREEN — CASSETTE FUTURISM ══ -->
 <div id="startScreen" class="overlay">
@@ -237,6 +266,14 @@
               <td class="s-kdesc">发射激光攻击</td>
             </tr>
             <tr>
+              <td><span class="s-kb">K</span></td>
+              <td class="s-kdesc">时间减速 <span style="opacity:.5;font-size:.75em">· 需升级</span></td>
+            </tr>
+            <tr>
+              <td><span class="s-kb">L</span></td>
+              <td class="s-kdesc">发射飞弹 <span style="opacity:.5;font-size:.75em">· 需升级</span></td>
+            </tr>
+            <tr>
               <td><span class="s-kb" style="border-bottom-color:var(--phosphor)">● XP球</span></td>
               <td class="s-kdesc">收集触发升级</td>
             </tr>
@@ -370,6 +407,14 @@
             <tr>
               <td><span class="sp-kb">J</span></td>
               <td class="sp-kdesc">发射激光</td>
+            </tr>
+            <tr>
+              <td><span class="sp-kb">K</span></td>
+              <td class="sp-kdesc">时间减速 <span style="opacity:.5;font-size:.75em">· 需升级</span></td>
+            </tr>
+            <tr>
+              <td><span class="sp-kb">L</span></td>
+              <td class="sp-kdesc">发射飞弹 <span style="opacity:.5;font-size:.75em">· 需升级</span></td>
             </tr>
             <tr>
               <td><span class="sp-kb">▲ 加速</span></td>
@@ -664,6 +709,7 @@
     <div class="diff-detail-header">
       <span class="diff-detail-title">威胁等级详情</span>
       <span class="diff-detail-sub">THREAT DETAILS</span>
+      <button class="diff-detail-close" onclick="hideDiffDetail()" aria-label="Close">&times;</button>
     </div>
     <div class="diff-detail-content">
       <div class="diff-detail-row">
@@ -970,6 +1016,7 @@
 <script src="js/game-2d.js"></script>
 <script src="js/game-3d.js"></script>
 <script src="js/background.js"></script>
+<script src="js/touch-input.js"></script>
 <script src="js/main.js"></script>
 </body>
 </html>

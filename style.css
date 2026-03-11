@@ -1873,3 +1873,190 @@ body{overflow:hidden;background:var(--dark);font-family:'Barlow Condensed',sans-
   font-family:'Share Tech Mono',monospace;font-size:9px;
   letter-spacing:1px;color:rgba(212,168,32,0.4);margin-top:2px;
 }
+
+
+/* ═══════════════════════════════════════════════════════════
+   MOBILE TOUCH CONTROLS
+   ═══════════════════════════════════════════════════════════ */
+
+#touchControls {
+  position: fixed; inset: 0; z-index: 45;
+  pointer-events: none;
+  transition: opacity 0.2s;
+  -webkit-user-select: none; user-select: none;
+  touch-action: none;
+}
+
+/* ── D-Pad ── */
+.dpad-container {
+  position: absolute;
+  left: max(12px, env(safe-area-inset-left, 0px));
+  bottom: max(24px, env(safe-area-inset-bottom, 0px));
+  width: 144px; height: 144px;
+  pointer-events: auto;
+}
+.dpad-btn {
+  position: absolute;
+  width: 48px; height: 48px;
+  border: 1.5px solid rgba(232,100,10,0.45);
+  background: rgba(8,6,4,0.5);
+  border-radius: 6px;
+  color: rgba(232,100,10,0.7);
+  font-size: 0;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: background 0.1s, border-color 0.1s;
+}
+.dpad-btn::after {
+  content: '';
+  display: block;
+  width: 0; height: 0;
+  position: absolute;
+  top: 50%; left: 50%;
+}
+.dpad-up    { left: 48px; top: 0; }
+.dpad-down  { left: 48px; bottom: 0; }
+.dpad-left  { left: 0; top: 48px; }
+.dpad-right { right: 0; top: 48px; }
+
+/* Arrow triangles */
+.dpad-up::after    { border-left:8px solid transparent; border-right:8px solid transparent; border-bottom:10px solid rgba(232,100,10,0.7); transform:translate(-50%,-60%); }
+.dpad-down::after  { border-left:8px solid transparent; border-right:8px solid transparent; border-top:10px solid rgba(232,100,10,0.7); transform:translate(-50%,-40%); }
+.dpad-left::after  { border-top:8px solid transparent; border-bottom:8px solid transparent; border-right:10px solid rgba(232,100,10,0.7); transform:translate(-60%,-50%); }
+.dpad-right::after { border-top:8px solid transparent; border-bottom:8px solid transparent; border-left:10px solid rgba(232,100,10,0.7); transform:translate(-40%,-50%); }
+
+.dpad-btn.active {
+  background: rgba(232,100,10,0.25);
+  border-color: rgba(232,100,10,0.8);
+}
+
+/* ── Skill buttons ── */
+.skill-container {
+  position: absolute;
+  right: max(12px, env(safe-area-inset-right, 0px));
+  bottom: max(24px, env(safe-area-inset-bottom, 0px));
+  display: flex; flex-direction: column; gap: 10px;
+  pointer-events: auto;
+}
+.skill-btn {
+  width: 52px; height: 52px;
+  border: 1.5px solid rgba(0,168,150,0.5);
+  background: rgba(8,6,4,0.5);
+  border-radius: 50%;
+  color: rgba(0,168,150,0.8);
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 16px; font-weight: 700;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: background 0.1s, border-color 0.1s;
+}
+.skill-btn.active {
+  background: rgba(0,168,150,0.25);
+  border-color: rgba(0,168,150,0.9);
+}
+
+/* ── Rotate device prompt ── */
+#rotatePrompt {
+  display: none;
+  position: fixed; inset: 0; z-index: 9999;
+  background: rgba(8,6,4,0.95);
+  color: #F8F4EC;
+  font-family: 'Share Tech Mono', monospace;
+  align-items: center; justify-content: center;
+}
+.rotate-inner {
+  text-align: center;
+}
+.rotate-icon {
+  color: var(--or);
+  margin-bottom: 16px;
+  animation: rotate-wiggle 2s ease-in-out infinite;
+}
+@keyframes rotate-wiggle {
+  0%,100% { transform: rotate(0deg); }
+  25% { transform: rotate(-15deg); }
+  75% { transform: rotate(15deg); }
+}
+#rotatePrompt p {
+  margin: 6px 0;
+  font-size: 16px;
+  letter-spacing: 2px;
+}
+
+/* Show rotate prompt on portrait mobile ONLY when game is active */
+@media (orientation: portrait) and (max-width: 768px) {
+  body.game-active #rotatePrompt { display: flex; }
+}
+
+
+/* Hide difficulty close button on desktop */
+.diff-detail-close { display: none; }
+
+/* ═══════════════════════════════════════════════════════════
+   MOBILE RESPONSIVE — max-width: 768px
+   ═══════════════════════════════════════════════════════════ */
+@media (max-width: 768px) {
+  /* ── Start screen: 双栏 → 单列 ── */
+  .s-main {
+    grid-template-columns: 1fr;
+    inset: 0;
+    overflow-y: auto;
+  }
+  .s-vhsbar { display: none; }
+  .s-panel-white { padding: 16px 18px 12px; }
+  .s-panel-dark { min-height: 50vh; }
+
+  /* ── Spring Festival: 同样单列 ── */
+  .sp-main {
+    grid-template-columns: 1fr;
+    inset: 0;
+    overflow-y: auto;
+  }
+
+  /* ── HUD 压缩 ── */
+  #hud { height: 40px; }
+  .hSeg { padding: 0 6px; }
+  .hLab { font-size: 7px; letter-spacing: 1.5px; }
+  .hVal { font-size: 14px; }
+  .hud-logo { width: 36px; }
+  .hud-logo-sym { font-size: 16px; }
+  .hud-logo-text { font-size: 4px; }
+  .hBar { width: 56px; }
+  .hud-xhair { width: 28px; }
+
+  /* ── Settings: sidebar → 横排 tabs ── */
+  .cfg-body { flex-direction: column; min-height: auto; }
+  .cfg-sidebar {
+    width: 100%; flex-direction: row;
+    border-right: none; border-bottom: 1px solid #1E2E40;
+    overflow-x: auto;
+  }
+  .cfg-tab { white-space: nowrap; }
+
+  /* ── Difficulty detail: 全屏 overlay ── */
+  .diff-detail-panel { width: 100vw; }
+
+  /* ── Game Over: 双栏 → 单列 ── */
+  .go-body { grid-template-columns: 1fr; padding: 16px 24px; gap: 20px; }
+  .sp-go-content { grid-template-columns: 1fr; gap: 16px; }
+
+  /* ── 触控目标最小 44x44px ── */
+  #muteBtn { min-width: 44px; min-height: 44px; padding: 8px 12px; }
+  .cfg-close { min-width: 44px; min-height: 44px; }
+  .bigBtn { padding: 14px 28px; }
+
+  /* ── Difficulty detail close button (mobile only) ── */
+  .diff-detail-close {
+    display: block;
+    position: absolute; top: 12px; right: 12px;
+    background: none; border: 1px solid #2A3040; color: #8A8A8A;
+    font-size: 20px; width: 36px; height: 36px;
+    cursor: pointer; line-height: 1;
+  }
+
+  /* ── Debug 隐藏 ── */
+  #evoDebugPanel { display: none !important; }
+
+  /* ── 进化树 touch-action ── */
+  #evoCanvas { touch-action: manipulation; }
+}
