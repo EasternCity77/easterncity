@@ -92,7 +92,8 @@ function _evoCalcLayout() {
   let hexR = Math.min(W,H) * (typeof isMobile !== 'undefined' && isMobile ? 0.065 : 0.048);
   hexR = Math.max(hexR, 22); // minimum touch target size
   let sp = hexR * 2.6;
-  let cx = W * 0.5, cy = H * 0.44;
+  const isPortrait = typeof isMobile !== 'undefined' && isMobile && H > W;
+  let cx = W * 0.5, cy = H * (isPortrait ? 0.38 : 0.44);
 
   // Selection focus: zoom and center on target node
   if (_evoFocusT > 0.001 && _evoFocusTarget) {

@@ -1985,9 +1985,7 @@ body{overflow:hidden;background:var(--dark);font-family:'Barlow Condensed',sans-
 
 /* Show rotate prompt on portrait mobile ONLY when game is active */
 /* Note: Actual visibility is controlled by JS in touch-input.js for better browser compatibility */
-@media (orientation: portrait) and (max-width: 768px) {
-  body.game-active #rotatePrompt { display: flex; }
-}
+/* Rotate prompt disabled — portrait mode is fully supported */
 
 
 /* ── Touch hints (default hidden, shown on mobile) ── */

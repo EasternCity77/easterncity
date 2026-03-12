@@ -119,12 +119,7 @@ function showTouchControls(visible) {
 
 // ── Orientation lock for gameplay ──
 function lockLandscape() {
-  if (!isMobile) return;
-  try {
-    if (screen.orientation && screen.orientation.lock) {
-      screen.orientation.lock('landscape').catch(() => {});
-    }
-  } catch(e) {}
+  // No longer force landscape — portrait mode is fully supported
 }
 
 function unlockOrientation() {
@@ -151,22 +146,13 @@ window.addEventListener('DOMContentLoaded', () => {
   initTouchControls();
 });
 
-// ── Rotate prompt: JS-based detection (more reliable than CSS orientation) ──
+// ── Rotate prompt disabled: portrait mode is fully supported ──
 function updateRotatePrompt() {
-  if (!isMobile || !document.body.classList.contains('game-active')) return;
+  // Portrait play is now supported — hide rotate prompt always
   const rp = document.getElementById('rotatePrompt');
-  if (!rp) return;
-
-  const w = window.innerWidth;
-  const h = window.innerHeight;
-  const isPortrait = h > w;
-
-  rp.style.display = isPortrait ? 'flex' : 'none';
+  if (rp) rp.style.display = 'none';
 }
 
-// Listen for resize/orientation changes
 window.addEventListener('resize', updateRotatePrompt);
 window.addEventListener('orientationchange', updateRotatePrompt);
-// Also check on game active change (called from game-2d.js)
-// @ts-ignore - intentional global for cross-module communication
 window._updateRotatePrompt = updateRotatePrompt;

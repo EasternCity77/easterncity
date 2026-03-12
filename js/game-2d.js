@@ -13,8 +13,10 @@ let missileShakeIntensity = 0;
 function gridToPixel(gx, gy, cS) {
   const W = window.innerWidth;
   const H = window.innerHeight;
+  const isPortrait = typeof isMobile !== 'undefined' && isMobile && H > W;
+  const CTRL_H = isPortrait ? 170 : 0;
   const ox = Math.floor((W - gCols * cS) / 2);
-  const oy = HUD_H + Math.floor((H - HUD_H - gRows * cS) / 2);
+  const oy = HUD_H + Math.floor((H - HUD_H - CTRL_H - gRows * cS) / 2);
   return [ox + gx * cS + cS / 2, oy + gy * cS + cS / 2];
 }
 
@@ -115,8 +117,11 @@ function resizeGame() {
 }
 
 function recalcCell() {
-  const W=window.innerWidth, H=window.innerHeight-HUD_H;
-  cS = Math.max(8, Math.floor(Math.min(W/gCols, H/gRows)));
+  const W = window.innerWidth;
+  const isPortrait = typeof isMobile !== 'undefined' && isMobile && window.innerHeight > W;
+  const CTRL_H = isPortrait ? 170 : 0;
+  const H = window.innerHeight - HUD_H - CTRL_H;
+  cS = Math.max(8, Math.floor(Math.min(W / gCols, H / gRows)));
 }
 
 
