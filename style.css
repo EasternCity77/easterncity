@@ -2086,32 +2086,81 @@ body{overflow:hidden;background:var(--dark);font-family:'Barlow Condensed',sans-
    手机横屏时高度极低（~360px），压缩所有固定间距
    ═══════════════════════════════════════════════════════════ */
 @media (max-height: 500px) {
-  /* ── 开始画面：横屏适配 ── */
+
+  /* ═══ 容器：允许滚动（原 overflow:hidden 阻止了一切） ═══ */
+  #startScreen { overflow-y: auto; }
+  #goScreen { overflow-y: auto; }
+  #spGoScreen { overflow-y: auto; }
+
+  /* ═══ 开始画面 Cassette ═══ */
   .s-main, .sp-main {
     inset: 0;
     overflow-y: auto;
   }
-  .s-panel-white { padding: 12px 16px 8px; }
+  .s-panel-white { padding: 10px 16px 6px; }
   .s-panel-dark { min-height: auto; }
   .s-control-panel { grid-template-columns: 1fr; }
   .s-cp-div { display: none; }
 
-  /* ── 结算界面 Cassette ── */
-  .go-header { padding: 10px 20px 8px; }
-  .go-title { font-size: 28px; letter-spacing: 4px; }
-  .go-body { padding: 12px 20px; gap: 16px; grid-template-columns: 1fr; }
-  .go-score-num { font-size: clamp(48px, 8vw, 72px); }
-  .go-footer { padding: 10px 20px; }
-  .go-lang-toggle { left: 20px; bottom: 10px; }
+  /* 磁带和标题压缩 */
+  .s-wtitle-hex { font-size: clamp(36px, 6vw, 66px); }
+  .s-wlogo { margin-bottom: 6px; }
+  .s-hero-tagline { margin-bottom: 2px; }
+  .s-hero-sub { margin-bottom: 6px; }
+  .s-vhs-bar { margin-bottom: 6px; }
+  .s-cassette { height: 60px; width: 120px; }
+  .s-cassette-wrap { margin-bottom: 6px; }
+  .s-badges { padding-top: 4px; }
+  .s-start-area { padding-top: 4px; }
+  .s-start-btn { padding: 10px 32px; }
 
-  /* ── 结算界面 Spring Festival ── */
-  .sp-scroll-body { min-height: auto; padding: 16px 24px; }
-  .sp-go-title { font-size: 28px; margin-top: 4px; }
-  .sp-go-content { grid-template-columns: 1fr; gap: 12px; }
-  .sp-go-actions { margin-top: 16px; }
-  .sp-go-header { margin-bottom: 12px; }
+  /* ═══ 开始画面 Spring Festival ═══ */
+  .sp-left-inner { padding: 10px 16px; gap: 6px; }
+  .sp-lantern-wrap { max-height: 80px; overflow: hidden; }
+  .sp-title-hex { font-size: clamp(32px, 5vw, 54px); }
+  .sp-color-bar { margin: 2px 0; }
+  .sp-couplet { gap: 4px; }
+  .sp-actions { gap: 6px; }
+  .sp-actions .sp-start-btn { padding: 10px 32px; }
+  .sp-control-area { padding: 8px 12px; gap: 6px; }
+  .sp-mode-row { height: 36px; }
+  .sp-cards-row { gap: 4px; }
+  .sp-card { padding: 6px 8px; }
 
-  /* ── HUD 压缩 ── */
+  /* ═══ 结算 Cassette ═══ */
+  .go-crt { overflow-y: auto; }
+  .go-header { padding: 8px 16px 6px; }
+  .go-title { font-size: 24px; letter-spacing: 3px; }
+  .go-body {
+    padding: 8px 16px; gap: 12px;
+    grid-template-columns: 1fr 1fr;
+    align-content: start;
+  }
+  .go-score-num { font-size: clamp(36px, 8vw, 56px); }
+  .go-score-label { font-size: 11px; }
+  .go-dline { padding: 4px 0; }
+  .go-tline { font-size: 12px; padding: 3px 0; line-height: 1.3; }
+  .go-terminal-header { padding-bottom: 4px; margin-bottom: 4px; font-size: 10px; }
+  .go-footer { padding: 8px 16px; }
+  .go-cmd { font-size: 11px; }
+  .go-cmd kbd { font-size: 9px; }
+  .go-lang-toggle { left: 16px; bottom: 8px; }
+  .bigBtn { padding: 10px 20px; font-size: 13px; }
+
+  /* ═══ 结算 Spring Festival ═══ */
+  .sp-scroll-roller { height: 22px; }
+  .sp-roller-cap { height: 10px; }
+  .sp-scroll-body { min-height: auto; padding: 12px 20px; }
+  .sp-go-header { margin-bottom: 10px; }
+  .sp-go-title { font-size: 24px; margin-top: 2px; }
+  .sp-go-content { grid-template-columns: 1fr 1fr; gap: 12px; }
+  .sp-score-num { font-size: clamp(36px, 8vw, 56px); }
+  .sp-score-label { font-size: 10px; }
+  .sp-stat-row { padding: 4px 0; font-size: 12px; }
+  .sp-go-actions { margin-top: 12px; gap: 10px; }
+  .sp-btn { padding: 8px 20px; font-size: 12px; }
+
+  /* ═══ HUD 压缩 ═══ */
   #hud { height: 40px; }
   .hLab { font-size: 8px; }
   .hVal { font-size: 14px; }
