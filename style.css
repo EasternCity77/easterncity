@@ -2080,3 +2080,39 @@ body{overflow:hidden;background:var(--dark);font-family:'Barlow Condensed',sans-
   /* ── 进化树 touch-action ── */
   #evoCanvas { touch-action: manipulation; }
 }
+
+/* ═══════════════════════════════════════════════════════════
+   LANDSCAPE / LOW-HEIGHT — max-height: 500px
+   手机横屏时高度极低（~360px），压缩所有固定间距
+   ═══════════════════════════════════════════════════════════ */
+@media (max-height: 500px) {
+  /* ── 开始画面：横屏适配 ── */
+  .s-main, .sp-main {
+    inset: 0;
+    overflow-y: auto;
+  }
+  .s-panel-white { padding: 12px 16px 8px; }
+  .s-panel-dark { min-height: auto; }
+  .s-control-panel { grid-template-columns: 1fr; }
+  .s-cp-div { display: none; }
+
+  /* ── 结算界面 Cassette ── */
+  .go-header { padding: 10px 20px 8px; }
+  .go-title { font-size: 28px; letter-spacing: 4px; }
+  .go-body { padding: 12px 20px; gap: 16px; grid-template-columns: 1fr; }
+  .go-score-num { font-size: clamp(48px, 8vw, 72px); }
+  .go-footer { padding: 10px 20px; }
+  .go-lang-toggle { left: 20px; bottom: 10px; }
+
+  /* ── 结算界面 Spring Festival ── */
+  .sp-scroll-body { min-height: auto; padding: 16px 24px; }
+  .sp-go-title { font-size: 28px; margin-top: 4px; }
+  .sp-go-content { grid-template-columns: 1fr; gap: 12px; }
+  .sp-go-actions { margin-top: 16px; }
+  .sp-go-header { margin-bottom: 12px; }
+
+  /* ── HUD 压缩 ── */
+  #hud { height: 40px; }
+  .hLab { font-size: 8px; }
+  .hVal { font-size: 14px; }
+}
