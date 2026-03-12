@@ -14,7 +14,7 @@
 }
 
 *{margin:0;padding:0;box-sizing:border-box;}
-body{overflow:hidden;background:var(--dark);font-family:'Barlow Condensed',sans-serif;width:100vw;height:100vh;user-select:none;}
+body{overflow:hidden;background:var(--dark);font-family:'Barlow Condensed',sans-serif;width:100%;height:100vh;user-select:none;}
 #gameCanvas{position:fixed;top:0;left:0;display:block;}
 
 /* ═══ CASSETTE DECK HUD ═══ */
@@ -1984,10 +1984,22 @@ body{overflow:hidden;background:var(--dark);font-family:'Barlow Condensed',sans-
 }
 
 /* Show rotate prompt on portrait mobile ONLY when game is active */
+/* Note: Actual visibility is controlled by JS in touch-input.js for better browser compatibility */
 @media (orientation: portrait) and (max-width: 768px) {
   body.game-active #rotatePrompt { display: flex; }
 }
 
+
+/* ── Touch hints (default hidden, shown on mobile) ── */
+.s-touch-hints, .sp-touch-hints { display: none; }
+.s-touch-row, .sp-touch-row {
+  display:flex;align-items:center;gap:8px;
+  padding:4px 0;font-size:11px;letter-spacing:0.5px;
+}
+.s-touch-row { color:rgba(255,184,48,0.7); }
+.s-touch-row svg { color:var(--amber);flex-shrink:0;opacity:0.8; }
+.sp-touch-row { color:rgba(212,168,32,0.7);font-family:'Share Tech Mono',monospace; }
+.sp-touch-row svg { color:#D4A820;flex-shrink:0;opacity:0.8; }
 
 /* Hide difficulty close button on desktop */
 .diff-detail-close { display: none; }
@@ -2016,7 +2028,7 @@ body{overflow:hidden;background:var(--dark);font-family:'Barlow Condensed',sans-
   /* ── HUD 压缩 ── */
   #hud { height: 40px; }
   .hSeg { padding: 0 6px; }
-  .hLab { font-size: 7px; letter-spacing: 1.5px; }
+  .hLab { font-size: 8px; letter-spacing: 1.5px; }
   .hVal { font-size: 14px; }
   .hud-logo { width: 36px; }
   .hud-logo-sym { font-size: 16px; }
@@ -2034,7 +2046,7 @@ body{overflow:hidden;background:var(--dark);font-family:'Barlow Condensed',sans-
   .cfg-tab { white-space: nowrap; }
 
   /* ── Difficulty detail: 全屏 overlay ── */
-  .diff-detail-panel { width: 100vw; }
+  .diff-detail-panel { width: 100%; }
 
   /* ── Game Over: 双栏 → 单列 ── */
   .go-body { grid-template-columns: 1fr; padding: 16px 24px; gap: 20px; }
@@ -2056,6 +2068,14 @@ body{overflow:hidden;background:var(--dark);font-family:'Barlow Condensed',sans-
 
   /* ── Debug 隐藏 ── */
   #evoDebugPanel { display: none !important; }
+
+  /* ── 操作表: 隐藏键盘说明，显示触控提示 ── */
+  .s-keytable, .sp-keytable { display: none; }
+  .s-touch-hints, .sp-touch-hints { display: block; }
+
+  /* ── 控制面板: 双栏 → 单列 ── */
+  .s-control-panel { grid-template-columns: 1fr; }
+  .s-cp-div { display: none; }
 
   /* ── 进化树 touch-action ── */
   #evoCanvas { touch-action: manipulation; }

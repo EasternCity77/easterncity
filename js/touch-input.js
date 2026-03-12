@@ -83,8 +83,7 @@ function initTouchControls() {
       delete activePointers[e.pointerId];
       btn.classList.remove('active');
     });
-    btn.addEventListener('pointercancel', e => {
-      delete activePointers[e.pointerId];
+    btn.addEventListener('pointercancel', () => {
       btn.classList.remove('active');
     });
   });
@@ -151,3 +150,23 @@ window.addEventListener('DOMContentLoaded', () => {
   if (typeof HUD_H !== 'undefined') HUD_H = 40;
   initTouchControls();
 });
+
+// ── Rotate prompt: JS-based detection (more reliable than CSS orientation) ──
+function updateRotatePrompt() {
+  if (!isMobile || !document.body.classList.contains('game-active')) return;
+  const rp = document.getElementById('rotatePrompt');
+  if (!rp) return;
+
+  const w = window.innerWidth;
+  const h = window.innerHeight;
+  const isPortrait = h > w;
+
+  rp.style.display = isPortrait ? 'flex' : 'none';
+}
+
+// Listen for resize/orientation changes
+window.addEventListener('resize', updateRotatePrompt);
+window.addEventListener('orientationchange', updateRotatePrompt);
+// Also check on game active change (called from game-2d.js)
+// @ts-ignore - intentional global for cross-module communication
+window._updateRotatePrompt = updateRotatePrompt;

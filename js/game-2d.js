@@ -148,6 +148,8 @@ function startGame() {
   if (typeof showTouchControls === 'function') showTouchControls(true);
   if (typeof lockLandscape === 'function') lockLandscape();
   document.body.classList.add('game-active');
+  // Update rotate prompt visibility
+  if (window._updateRotatePrompt) window._updateRotatePrompt();
 
   const mx=Math.floor(gCols/2), my=Math.floor(gRows/2);
   player={

@@ -2,7 +2,7 @@
 <html lang="zh">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>HexSnake: Dimension Fold</title>
 <link rel="stylesheet" href="style.css">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg'/>">
@@ -290,6 +290,21 @@
               <td class="s-kdesc">BGM 开关</td>
             </tr>
           </table>
+          <!-- Mobile touch control hints (hidden on desktop) -->
+          <div class="s-touch-hints">
+            <div class="s-touch-row">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v8M12 22v-8M2 12h8M22 12h-8"/><polyline points="8 8 12 4 16 8"/><polyline points="8 16 12 20 16 16"/><polyline points="4 8 4 12 8 16"/><polyline points="20 8 20 12 16 16"/></svg>
+              <span>左侧 D-Pad 控制移动方向</span>
+            </div>
+            <div class="s-touch-row">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/></svg>
+              <span>右侧按钮释放技能 (J / K / L)</span>
+            </div>
+            <div class="s-touch-row">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polygon points="12 2 15 10 24 10 17 15 19 23 12 18 5 23 7 15 0 10 9 10"/></svg>
+              <span>● XP球触发升级 · ▲加速 · ▼减速</span>
+            </div>
+          </div>
         </div>
 
         <div class="s-cp-div"></div>
@@ -429,6 +444,21 @@
               <td class="sp-kdesc">BGM 开关</td>
             </tr>
           </table>
+          <!-- Mobile touch control hints (hidden on desktop) -->
+          <div class="sp-touch-hints">
+            <div class="sp-touch-row">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v8M12 22v-8M2 12h8M22 12h-8"/><polyline points="8 8 12 4 16 8"/><polyline points="8 16 12 20 16 16"/><polyline points="4 8 4 12 8 16"/><polyline points="20 8 20 12 16 16"/></svg>
+              <span>左侧 D-Pad 控制移动方向</span>
+            </div>
+            <div class="sp-touch-row">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/></svg>
+              <span>右侧按钮释放技能 (J / K / L)</span>
+            </div>
+            <div class="sp-touch-row">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polygon points="12 2 15 10 24 10 17 15 19 23 12 18 5 23 7 15 0 10 9 10"/></svg>
+              <span>● XP球触发升级 · ▲加速 · ▼减速</span>
+            </div>
+          </div>
         </div>
 
         <!-- Mode selection -->
@@ -522,8 +552,8 @@
           <div class="cfg-theme-cards">
             <div class="cfg-theme-card active" data-theme-id="cassette"
                  onclick="switchTheme('cassette')"
-                 onmouseenter="previewTheme('cassette')"
-                 onmouseleave="previewTheme(getTheme().id)">
+                 onmouseenter="if(!isMobile)previewTheme('cassette')"
+                 onmouseleave="if(!isMobile)previewTheme(getTheme().id)">
               <div class="cfg-card-glow"></div>
               <span class="cfg-theme-dot">●</span>
               <div class="cfg-theme-info">
@@ -534,8 +564,8 @@
             </div>
             <div class="cfg-theme-card" data-theme-id="spring"
                  onclick="switchTheme('spring')"
-                 onmouseenter="previewTheme('spring')"
-                 onmouseleave="previewTheme(getTheme().id)">
+                 onmouseenter="if(!isMobile)previewTheme('spring')"
+                 onmouseleave="if(!isMobile)previewTheme(getTheme().id)">
               <div class="cfg-card-glow"></div>
               <span class="cfg-theme-dot">○</span>
               <div class="cfg-theme-info">
@@ -578,7 +608,7 @@
           <div class="cfg-section-title">◈ 难度选择  DIFFICULTY SELECT</div>
           <div class="cfg-diff-cards">
             <!-- EASY -->
-            <div class="cfg-diff-card" data-diff="easy" onclick="selectDifficulty('easy')"
+            <div class="cfg-diff-card" data-diff="easy" onclick="selectDifficulty('easy'); if(window.isMobile){showDiffDetail('easy');}"
                  onmouseenter="showDiffDetail('easy')" onmouseleave="hideDiffDetail()">
               <div class="cfg-card-glow"></div>
               <span class="cfg-diff-dot">●</span>
@@ -589,7 +619,7 @@
               </div>
             </div>
             <!-- NORMAL -->
-            <div class="cfg-diff-card active" data-diff="normal" onclick="selectDifficulty('normal')"
+            <div class="cfg-diff-card active" data-diff="normal" onclick="selectDifficulty('normal'); if(window.isMobile){showDiffDetail('normal');}"
                  onmouseenter="showDiffDetail('normal')" onmouseleave="hideDiffDetail()">
               <div class="cfg-card-glow"></div>
               <span class="cfg-diff-dot">●</span>
@@ -600,7 +630,7 @@
               </div>
             </div>
             <!-- HARD -->
-            <div class="cfg-diff-card" data-diff="hard" onclick="selectDifficulty('hard')"
+            <div class="cfg-diff-card" data-diff="hard" onclick="selectDifficulty('hard'); if(window.isMobile){showDiffDetail('hard');}"
                  onmouseenter="showDiffDetail('hard')" onmouseleave="hideDiffDetail()">
               <div class="cfg-card-glow"></div>
               <span class="cfg-diff-dot">●</span>
@@ -611,7 +641,7 @@
               </div>
             </div>
             <!-- HELL -->
-            <div class="cfg-diff-card" data-diff="hell" onclick="selectDifficulty('hell')"
+            <div class="cfg-diff-card" data-diff="hell" onclick="selectDifficulty('hell'); if(window.isMobile){showDiffDetail('hell');}"
                  onmouseenter="showDiffDetail('hell')" onmouseleave="hideDiffDetail()">
               <div class="cfg-card-glow"></div>
               <span class="cfg-diff-dot">●</span>
@@ -623,7 +653,8 @@
             </div>
             <!-- NIGHTMARE (locked) -->
             <div class="cfg-diff-card locked" data-diff="nightmare" title="暂未解锁"
-                 onmouseenter="showDiffDetail('nightmare')" onmouseleave="hideDiffDetail()">
+                 onmouseenter="showDiffDetail('nightmare')" onmouseleave="hideDiffDetail()"
+                 onclick="if(window.isMobile){showDiffDetail('nightmare');}">
               <div class="cfg-card-glow"></div>
               <span class="cfg-diff-dot">○</span>
               <span class="cfg-diff-lock">🔒</span>
