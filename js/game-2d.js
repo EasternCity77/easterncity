@@ -1113,11 +1113,7 @@ function endTimeSlow() {
   Audio.sfxTimeSlowEnd();
   // 计算玩家头部画布坐标并生成碎片
   const head = player.body[0];
-  const W = canvas.width, H = canvas.height;
-  const ox = Math.floor((W - gCols * cS) / 2);
-  const oy = HUD_H + Math.floor((H - HUD_H - gRows * cS) / 2);
-  const hx = ox + head.x * cS + cS / 2;
-  const hy = oy + head.y * cS + cS / 2;
+  const [hx, hy] = gridToPixel(head.x, head.y, cS);
   timeSlowCracks = generateIceCracks(hx, hy);
   timeSlowShards = generateIceShards(hx, hy);
   timeSlowEnding = true;
@@ -1226,10 +1222,12 @@ function updateMissiles(dt) {
         m.x += m.vx * dt;
         m.y += m.vy * dt;
 
-        // Grid-based collision (account for grid offset)
+        // Grid-based collision (account for grid offset + portrait touch controls)
         const _W = window.innerWidth, _H = window.innerHeight;
+        const _isPortrait = typeof isMobile !== 'undefined' && isMobile && _H > _W;
+        const _ctrlH = _isPortrait ? 170 : 0;
         const _ox = Math.floor((_W - gCols * cS) / 2);
-        const _oy = HUD_H + Math.floor((_H - HUD_H - gRows * cS) / 2);
+        const _oy = HUD_H + Math.floor((_H - HUD_H - _ctrlH - gRows * cS) / 2);
         const gx = Math.floor((m.x - _ox) / cS);
         const gy = Math.floor((m.y - _oy) / cS);
 
@@ -1275,8 +1273,10 @@ function updateMissiles(dt) {
         m.y += m.vy * dt;
         // 飞出边界才销毁
         const _W2 = window.innerWidth, _H2 = window.innerHeight;
+        const _isPortrait2 = typeof isMobile !== 'undefined' && isMobile && _H2 > _W2;
+        const _ctrlH2 = _isPortrait2 ? 170 : 0;
         const _ox2 = Math.floor((_W2 - gCols * cS) / 2);
-        const _oy2 = HUD_H + Math.floor((_H2 - HUD_H - gRows * cS) / 2);
+        const _oy2 = HUD_H + Math.floor((_H2 - HUD_H - _ctrlH2 - gRows * cS) / 2);
         const gx2 = Math.floor((m.x - _ox2) / cS);
         const gy2 = Math.floor((m.y - _oy2) / cS);
         if(gx2 < 0 || gx2 >= gCols || gy2 < 0 || gy2 >= gRows) {
