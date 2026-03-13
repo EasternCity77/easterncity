@@ -1484,8 +1484,10 @@ function render() {
   // Body background
   ctx.fillStyle=T.boardBody; ctx.fillRect(0,0,W,H);
 
+  const _isP = typeof isMobile !== 'undefined' && isMobile && H > W;
+  const _cH = _isP ? 170 : 0;
   const ox=Math.floor((W-gCols*cS)/2);
-  const oy=HUD_H+Math.floor((H-HUD_H-gRows*cS)/2);
+  const oy=HUD_H+Math.floor((H-HUD_H-_cH-gRows*cS)/2);
 
   // ── Board background ──
   // Outer shadow/margin
