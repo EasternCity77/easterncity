@@ -2046,7 +2046,10 @@ body{overflow:hidden;background:var(--dark);font-family:'Barlow Condensed',sans-
   /* ── Difficulty detail: 全屏 overlay ── */
   .diff-detail-panel { width: 100%; }
 
-  /* ── Game Over: 双栏 → 单列 ── */
+  /* ── Game Over: 双栏 → 单列 + 允许滚动 ── */
+  #goScreen { overflow-y: auto; }
+  #spGoScreen { overflow-y: auto; }
+  .go-crt { height: auto; min-height: 100%; overflow-y: auto; }
   .go-body { grid-template-columns: 1fr; padding: 16px 24px; gap: 20px; }
   .sp-go-content { grid-template-columns: 1fr; gap: 16px; }
 
