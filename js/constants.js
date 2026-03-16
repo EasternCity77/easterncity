@@ -53,21 +53,23 @@ const EVO_NODES = [
   // ── LASER BRANCH (upper-left) ──
   {id:'laser2', label:'双激光',    desc:'激光数量 +1',       req:[],          branch:'laser',   dx:-1.3, dy:-0.3},
   {id:'laser3', label:'三激光',    desc:'激光数量 +1',       req:['laser2'],  branch:'laser',   dx:-3.6, dy:-1.7},
-  {id:'pierce', label:'穿透',      desc:'激光贯穿 1 个敌蛇',  req:['laser2'],  branch:'laser',   dx:-2.7, dy:0.1},
+  {id:'pierce', label:'穿透',      desc:'激光贯穿 1 个敌蛇',  req:['laser2'],  branch:'laser',   dx:-2.4, dy:0.6},
   {id:'cd1',    label:'急速冷却Ⅰ', desc:'冷却 5s → 4s',     req:[],          branch:'laser',   dx:-0.3, dy:-1.1},
-  {id:'cd2',    label:'急速冷却Ⅱ', desc:'冷却 4s → 3s',     req:['cd1'],     branch:'laser',   dx:-1.5, dy:-2.3},
-  {id:'dmg2',   label:'强力激光',  desc:'激光伤害 ×2',       req:[],          branch:'laser',   dx:1.3, dy:1.0},
-  {id:'slow',   label:'减速附魔',  desc:'命中使敌蛇减速 3s',  req:['dmg2'],    branch:'laser',   dx:1.2, dy:2.0},
+  {id:'cd2',    label:'急速冷却Ⅱ', desc:'冷却 4s → 3s',     req:['cd1'],     branch:'laser',   dx:-1.6, dy:-2.2},
+  {id:'dmg2',   label:'强力激光',  desc:'激光伤害 ×2',       req:['laser2'],  branch:'laser',   dx:-3.3, dy:-0.3},
+  {id:'slow',   label:'减速附魔',  desc:'命中使敌蛇减速 3s',  req:['dmg2','pierce'], branch:'laser', dx:-4.6, dy:0.9},
   // ── MISSILE BRANCH (upper-right) ──
-  {id:'ms_count',label:'飞弹 +',   desc:'飞弹数量 +2',       req:['laser2'],  branch:'missile', dx:1.2, dy:-0.5},
-  {id:'ms_pierce',label:'飞弹穿透', desc:'飞弹可穿透 1 墙',    req:['ms_count'],branch:'missile', dx:2.3, dy:-1.3},
-  {id:'ms_dmg',  label:'飞弹伤 +',  desc:'飞弹伤害 +1',       req:['ms_pierce'],branch:'missile',dx:3.3, dy:-2.0},
+  {id:'ms_count',label:'飞弹 +',   desc:'飞弹数量 +2',       req:[],          branch:'missile', dx:1.8, dy:-1.0},
+  {id:'ms_pierce',label:'飞弹穿透', desc:'飞弹可穿透 1 墙',    req:['ms_count'],branch:'missile', dx:3.0, dy:-0.5},
+  {id:'ms_dmg',  label:'飞弹伤 +',  desc:'飞弹伤害 +1',       req:['ms_count'],branch:'missile', dx:3.0, dy:-1.8},
   // ── MOBILITY BRANCH (bottom) ──
-  {id:'spd1',   label:'加速Ⅰ',    desc:'基础移速 +20%',     req:[],          branch:'mobility', dx:-1.5, dy:1.4},
+  {id:'spd1',   label:'加速Ⅰ',    desc:'基础移速 +20%',     req:[],          branch:'mobility', dx:-0.9, dy:0.7},
   {id:'spd2',   label:'加速Ⅱ',    desc:'基础移速再 +20%',   req:['spd1'],    branch:'mobility', dx:-3.3, dy:1.6},
-  {id:'qturn',  label:'急停反应',  desc:'可 180°掉头',        req:[],          branch:'mobility', dx:-0.3, dy:1.2},
-  {id:'ts_dur', label:'时缓 +',   desc:'时缓持续时间 +2s',    req:['spd1'],    branch:'mobility', dx:0.3, dy:2.5},
-  {id:'ts_cd',  label:'时缓 CD-', desc:'时缓冷却 -5s',       req:['ts_dur'],  branch:'mobility', dx:-0.3, dy:3.5}
+  {id:'qturn',  label:'急停反应',  desc:'可 180°掉头',        req:[],          branch:'mobility', dx:1.7, dy:0.3},
+  {id:'ts_dur', label:'时缓 +',   desc:'时缓持续时间 +2s',    req:['spd1'],    branch:'mobility', dx:-1.6, dy:2.1},
+  {id:'ts_cd',  label:'时缓 CD-', desc:'时缓冷却 -5s',       req:['ts_dur'],  branch:'mobility', dx:-0.3, dy:3.5},
+  {id:'combo_ext',label:'持久连击', desc:'连击计时 +1.5s',     req:['spd1'],    branch:'mobility', dx:0.1, dy:1.7},
+  {id:'xp_boost', label:'经验强化', desc:'XP 获取 +50%',      req:['combo_ext'],branch:'mobility', dx:1.5, dy:1.7}
 ];
 
 // ── 3D Cube Mode Evolution Nodes ──
@@ -94,7 +96,8 @@ const NODE_CODES_3D = {
 const NODE_CODES = {
   laser2:'LASR·02', laser3:'LASR·03', pierce:'PRCE·01',
   cd1:'COOL·01',    cd2:'COOL·02',    dmg2:'POVR·02',
-  slow:'SLWF·01',   spd1:'MSPD·01',  spd2:'MSPD·02',
+  slow:'SLWF·01',   combo_ext:'CMBX·01', xp_boost:'XPBT·01',
+  spd1:'MSPD·01',  spd2:'MSPD·02',
   qturn:'QTRN·01',  ms_count:'MSLC·02', ms_pierce:'MSPI·01', ms_dmg:'MSDM·02',
   ts_dur:'TSDR·01', ts_cd:'TSCD·01',
 };

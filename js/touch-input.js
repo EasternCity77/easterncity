@@ -34,6 +34,8 @@ function _fpsCheck(ts) {
 }
 // Hook into game loop — called from game-2d.js loop()
 window._touchFpsCheck = _fpsCheck;
+// Allow re-evaluation on new game start
+window._touchFpsReset = function() { _fpsFrames = []; _fpsDegraded = false; };
 
 // ── Touch controls setup ──
 function initTouchControls() {

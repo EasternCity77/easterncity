@@ -146,6 +146,7 @@ function startGame() {
   canvas.style.display='block'; // restore after 3D death may have hidden it
 
   gCols=20; gRows=20; recalcCell(); resizeGame();
+  if (window._touchFpsReset) window._touchFpsReset();
   score=0; level=1; xp=0; xpNeeded=5; gameTime=0;
   gamePaused=false; gameActive=true; deathTime=0;
 
@@ -163,7 +164,8 @@ function startGame() {
     grow:0, lCD:0,
     speedMult:1, speedTarget:1,    effects:[],
     upg:{laserN:1,laserDmg:1,laserCD:1.0,pierce:false,slow:false,spd:0,quickTurn:false,
-         ts_dur:0, ts_cd:0, ms_count:0, ms_pierce:false, ms_dmg:0},
+         ts_dur:0, ts_cd:0, ms_count:0, ms_pierce:false, ms_dmg:0,
+         combo_ext:0, xp_boost:0},
     alive:true,
     // Skill state
     timeSlowCD: 0, timeSlowActive: false, timeSlowEnd: 0, timeSlowStart: 0, timeSlowSpeedMult: 1,
@@ -556,13 +558,15 @@ function updateTimers(dt) {
   walls=walls.filter(w=>{w.life-=dt;return w.life>0;});
   speedItems=speedItems.filter(s=>{s.life-=dt;return s.life>0;});
   player.effects=player.effects.filter(e=>{e.life-=dt;return e.life>0;});
-  if(laserVis){laserVis.life-=dt; if(laserVis.life<=0)laserVis=null;}
+  const laserDt = player.timeSlowActive ? dt * TIME_SLOW_BULLET_MULT : dt;
+  if(laserVis){laserVis.life-=laserDt; if(laserVis.life<=0)laserVis=null;}
   enemies.forEach(e=>{if(e.slowTimer>0)e.slowTimer-=dt;});
   if(threatNotif){threatNotif.life-=dt; if(threatNotif.life<=0)threatNotif=null;}
   recalcSpeed();
 
-  // Combo reset if player hasn't eaten in COMBO_RESET_MS
-  if(combo>0 && gameTime-lastFoodTS>COMBO_RESET_MS){
+  // Combo reset if player hasn't eaten in COMBO_RESET_MS (+ combo_ext bonus)
+  const comboWindow = COMBO_RESET_MS + (player.upg.combo_ext ? player.upg.combo_ext * 1500 : 0);
+  if(combo>0 && gameTime-lastFoodTS>comboWindow){
     combo=0; comboMult=1;
   }
 }
@@ -774,7 +778,8 @@ function lerpSpeed(dt) {
 
 function addXP() {
   Audio.sfxXP();
-  xp++;
+  const gain = player.upg.xp_boost ? 2 : 1;  // xp_boost: +50% → 2 per pickup (rounds up from 1.5)
+  xp += gain;
   if(xp>=xpNeeded){xp=0;xpNeeded+=3;doLevelUp();}
 }
 
@@ -957,7 +962,7 @@ function updateBullets() {
         const si=e.body.findIndex(s=>s.x===b.x&&s.y===b.y);
         if(si<0) continue;
         if(si===0){score+=50;killCount++;Audio.sfxEnemyDeath();enemies.splice(ei,1);}
-        else{e.body.splice(si);score+=15;Audio.sfxEnemyHit();}
+        else{e.body.splice(si,1);score+=15;Audio.sfxEnemyHit();}
         return false;
       }
     }
@@ -1004,13 +1009,13 @@ function fireLaser() {
         laserHits++;
         Audio.sfxEnemyHit();
         const willKill = e.body.length <= player.upg.laserDmg;
-        const [hitPx, hitPy] = gridToPixel(x, y, cellSize);
+        const [hitPx, hitPy] = gridToPixel(x, y, cS);
         createLaserHitEffect(hitPx, hitPy, willKill);
         for(let d=0;d<player.upg.laserDmg;d++){
           if(e.body.length>1) e.body.pop();
           else{score+=50;killCount++;Audio.sfxEnemyDeath();missileShakeTime=120;missileShakeIntensity=3;enemies.splice(ei,1);break;}
         }
-        if(player.upg.slow&&enemies[ei]) enemies[ei].slowTimer=3000;
+        if(player.upg.slow&&e.body.length>0) e.slowTimer=3000;
       }
       if(hitCell&&pierce<=0) break;
       if(hitCell) pierce--;
@@ -1397,8 +1402,10 @@ function onKey(e) {
     toggleEvoDebug();
     return;
   }
-  // ESC closes settings panel
+  // ESC closes settings panel or manual
   if(e.key==='Escape'){
+    const mn=document.getElementById('manualScreen');
+    if(mn&&mn.classList.contains('show')){closeManual();e.preventDefault();return;}
     const cfg=document.getElementById('cfgScreen');
     if(cfg&&cfg.classList.contains('show')){closeSettings();e.preventDefault();return;}
   }
@@ -1790,13 +1797,14 @@ function render() {
     }
   }
 
+  // Restore shake transform if it was applied
+  if(deathShakeX !== 0 || deathShakeY !== 0){
+    ctx.restore();
+  }
+
   // ── Death transition overlay ──
   if(deathTime){
-    // Restore shake transform only if it was applied (within first 400ms)
     const elapsed = performance.now() - deathTime;
-    if(elapsed < 400){
-      ctx.restore();
-    }
 
     // Phase 1: Flash (0-250ms)
     if(elapsed < 250){

@@ -100,9 +100,10 @@ function _evoCalcLayout() {
     const zoom = 1 + _evoFocusT * 0.35;
     hexR *= zoom;
     sp *= zoom;
-    // Use pre-calculated final target position (fixed during animation)
-    cx += (_evoFocusFinalCx - cx) * 0.3;
-    cy += (_evoFocusFinalCy - cy) * 0.3;
+    // Ease-out cubic for smooth deceleration
+    const eased = 1 - Math.pow(1 - _evoFocusT, 3);
+    cx = cx + (_evoFocusFinalCx - cx) * eased;
+    cy = cy + (_evoFocusFinalCy - cy) * eased;
   }
 
   _evoLayout = {cx,cy,sp,hexR,W,H};
@@ -135,12 +136,14 @@ function drawEvoTree() {
       _evoFocusTarget = targetNode;
       // Pre-calculate final target position with full zoom (1.35x)
       const W = window.innerWidth, H = window.innerHeight;
-      const baseSp = Math.min(W, H) * 0.048 * 2.6;
+      let baseHexR = Math.min(W,H) * (typeof isMobile !== 'undefined' && isMobile ? 0.065 : 0.048);
+      baseHexR = Math.max(baseHexR, 22);
+      const baseSp = baseHexR * 2.6;
       const finalSp = baseSp * 1.35;
       _evoFocusFinalCx = W / 2 - targetNode.dx * finalSp;
       _evoFocusFinalCy = H / 2 - targetNode.dy * finalSp;
     }
-    _evoFocusT = Math.min(1, _evoFocusT + dt * 0.004);
+    _evoFocusT = Math.min(1, _evoFocusT + dt * 0.005);
   } else {
     _evoFocusT = Math.max(0, _evoFocusT - dt * 0.006);
     if (_evoFocusT <= 0.001) _evoFocusTarget = null;
@@ -763,6 +766,8 @@ function applyUpgradeEffect(id) {
     case'ms_count': u.ms_count = (u.ms_count || 0) + 1; break;
     case'ms_pierce': u.ms_pierce = true; break;
     case'ms_dmg': u.ms_dmg = (u.ms_dmg || 0) + 1; break;
+    case'combo_ext': u.combo_ext = (u.combo_ext || 0) + 1; break;
+    case'xp_boost': u.xp_boost = 1; break;
     // 3D
     case'sw2': u.swRange=3; break;
     case'sw3': u.swRange=4; break;
@@ -1458,13 +1463,165 @@ function closeSettings() {
   if (screen) screen.classList.remove('show');
 }
 
+// ═══ OPERATOR'S MANUAL ═══
+
+let manualLang = 'en';
+let manualCurrentPage = 0;
+const MANUAL_PAGE_COUNT = 6;
+
+const MANUAL_I18N = {
+  t_move:  {en:'§ SECTION 01 — MOVE',          cn:'§ 章节 01 — 移动操控'},
+  t_combo: {en:'§ SECTION 02 — COMBO',         cn:'§ 章节 02 — 连击系统'},
+  t_laser: {en:'§ SECTION 03 — LASER',         cn:'§ 章节 03 — 激光武器'},
+  t_skill: {en:'§ SECTION 04 — SKILL',         cn:'§ 章节 04 — 主动技能'},
+  t_evo:   {en:'§ SECTION 05 — EVOLUTION',     cn:'§ 章节 05 — 进化树'},
+  t_threat:{en:'§ SECTION 06 — THREAT',        cn:'§ 章节 06 — 威胁系统'},
+  c_move: {
+    en:'<p>Navigate your snake across the hexagonal grid.</p><p><kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> or <kbd>↑</kbd> <kbd>←</kbd> <kbd>↓</kbd> <kbd>→</kbd> — Change direction</p><p>Eat the flashing food cell to grow longer and earn points. The longer you survive, the higher the threat level rises.</p><p>Avoid collisions with walls, enemy snakes, and your own body — any contact is fatal.</p>',
+    cn:'<p>在六边形网格上操控你的蛇。</p><p><kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> 或 <kbd>↑</kbd> <kbd>←</kbd> <kbd>↓</kbd> <kbd>→</kbd> — 改变方向</p><p>吃掉闪烁的食物来增长身体并获得分数。存活时间越长，威胁等级越高。</p><p>避免碰撞墙壁、敌蛇和自己的身体 — 任何接触都会致命。</p>'
+  },
+  c_combo: {
+    en:'<p>Eating food in quick succession builds a combo chain:</p><p>×1.0 → ×1.5 → ×2.0 → ×2.5 → ... → ×4.0 (max)</p><p>Each food eaten within the combo window extends the timer. If you go too long without eating, the combo resets to ×1.</p><p>Higher combos mean higher scores — plan your route to chain food pickups efficiently.</p>',
+    cn:'<p>快速连续吃食物可以积累连击：</p><p>×1.0 → ×1.5 → ×2.0 → ×2.5 → ... → ×4.0（上限）</p><p>在连击时间窗口内吃到食物会刷新计时器。如果间隔太久没吃到食物，连击倍率重置为 ×1。</p><p>更高的连击意味着更高的分数 — 规划路线以高效串联食物。</p>'
+  },
+  c_laser: {
+    en:'<p><kbd>J</kbd> — Fire laser beam in your current direction.</p><p>The laser has a 5-second cooldown (upgradeable). It damages enemy snakes on contact, removing segments or killing them outright.</p><p>Upgrade paths include: multi-beam, pierce (penetrate through enemies), double damage, and slow enchantment.</p><p>The cooldown indicator is shown on the HUD bar at the top.</p>',
+    cn:'<p><kbd>J</kbd> — 向当前方向发射激光。</p><p>激光有 5 秒冷却时间（可升级缩短）。命中敌蛇时会移除身体段或直接击杀。</p><p>升级路线包括：多束激光、穿透（贯穿敌蛇）、双倍伤害、减速附魔。</p><p>冷却进度显示在顶部 HUD 栏中。</p>'
+  },
+  c_skill: {
+    en:'<p><kbd>K</kbd> — Time Slow: briefly freeze the world, then slow enemies and bullets to 20% speed while you move at 70%. Cooldown: 20s.</p><p><kbd>L</kbd> — Tracking Missiles: launch homing missiles that orbit your head, then lock onto and pursue the nearest enemy. Cooldown: 10s.</p><p>Both skills can be enhanced through the Evolution Tree — increase duration, reduce cooldown, add missile count or pierce.</p>',
+    cn:'<p><kbd>K</kbd> — 时间减缓：短暂冻结世界，随后敌人和子弹减速至 20%，你的移速为 70%。冷却：20 秒。</p><p><kbd>L</kbd> — 追踪飞弹：发射环绕蛇头的自导飞弹，锁定并追踪最近的敌蛇。冷却：10 秒。</p><p>两个技能都可以通过进化树强化 — 增加持续时间、缩短冷却、增加飞弹数量或穿透。</p>'
+  },
+  c_evo: {
+    en:'<p>Collect blue XP orbs dropped by defeated enemies. Fill the XP bar to level up and unlock one evolution node.</p><p>Three upgrade paths:</p><p>▸ <span class="mn-branch laser">LASER</span> — More beams, pierce, damage, slow enchant. High investment, devastating control.</p><p>▸ <span class="mn-branch missile">MISSILE</span> — More missiles, wall pierce, bonus damage. Independent burst path.</p><p>▸ <span class="mn-branch mobility">MOBILITY</span> — Speed boost, quick turn, time slow upgrades, combo extension, XP boost. Growth-oriented.</p><p>Each level-up expands the map, giving you more room but also more enemies.</p>',
+    cn:'<p>收集击败敌蛇掉落的蓝色 XP 球。填满经验条即可升级并解锁一个进化节点。</p><p>三条升级路线：</p><p>▸ <span class="mn-branch laser">激光</span> — 更多光束、穿透、伤害、减速附魔。高投入，毁灭性控制。</p><p>▸ <span class="mn-branch missile">飞弹</span> — 更多飞弹、穿墙、额外伤害。独立爆发路线。</p><p>▸ <span class="mn-branch mobility">机动</span> — 加速、急转、时缓强化、连击延长、经验加成。成长导向。</p><p>每次升级会扩大地图，给你更多空间，但也带来更多敌人。</p>'
+  },
+  c_threat: {
+    en:'<p>Threat level increases over time. Higher threat means:</p><p>▸ More enemy snakes spawning on the map</p><p>▸ Enemies shoot bullets more frequently</p><p>▸ Bullets gain speed and spread patterns at higher levels</p><p>Walls appear and disappear periodically — they block movement, lasers, and missiles.</p><p>Speed items (▲/▼) spawn on the map — collect them to temporarily boost or reduce your speed.</p>',
+    cn:'<p>威胁等级随时间持续上升。更高的威胁意味着：</p><p>▸ 地图上生成更多敌蛇</p><p>▸ 敌蛇更频繁地发射子弹</p><p>▸ 高等级时子弹获得加速和扩散模式</p><p>墙壁会周期性地出现和消失 — 它们阻挡移动、激光和飞弹。</p><p>速度道具（▲/▼）会在地图上生成 — 拾取可临时加速或减速。</p>'
+  }
+};
+
+function openManual() {
+  manualCurrentPage = 0;
+  document.getElementById('manualScreen').classList.add('show');
+  updateManualStack();
+  updateManualPageIndicator();
+  applyManualLang();
+}
+
+function closeManual() {
+  document.getElementById('manualScreen').classList.remove('show');
+}
+
+function updateManualStack() {
+  for (let i = 0; i < MANUAL_PAGE_COUNT; i++) {
+    const page = document.getElementById('manPage' + i);
+    if (!page) continue;
+    page.classList.remove('page-front','page-back-1','page-back-2','page-hidden','page-exit-left','page-exit-right');
+    const rel = ((i - manualCurrentPage) + MANUAL_PAGE_COUNT) % MANUAL_PAGE_COUNT;
+    if (rel === 0) page.classList.add('page-front');
+    else if (rel === 1) page.classList.add('page-back-1');
+    else if (rel === 2) page.classList.add('page-back-2');
+    else page.classList.add('page-hidden');
+  }
+}
+
+function updateManualPageIndicator() {
+  const el = document.getElementById('manPageInd');
+  if (el) el.textContent = '\u00a7' + (manualCurrentPage + 1) + ' / \u00a7' + MANUAL_PAGE_COUNT;
+  const prev = document.getElementById('manPrev');
+  const next = document.getElementById('manNext');
+  if (prev) prev.disabled = manualCurrentPage === 0;
+  if (next) next.disabled = manualCurrentPage === MANUAL_PAGE_COUNT - 1;
+}
+
+function manualNextPage() {
+  if (manualCurrentPage >= MANUAL_PAGE_COUNT - 1) return;
+  const oldPage = document.getElementById('manPage' + manualCurrentPage);
+  if (oldPage) {
+    oldPage.classList.remove('page-front');
+    oldPage.classList.add('page-exit-left');
+  }
+  manualCurrentPage++;
+  // immediately position new front + back pages
+  for (let i = 0; i < MANUAL_PAGE_COUNT; i++) {
+    if (i === manualCurrentPage - 1) continue; // exiting page handled above
+    const page = document.getElementById('manPage' + i);
+    if (!page) continue;
+    page.classList.remove('page-front','page-back-1','page-back-2','page-hidden');
+    const rel = ((i - manualCurrentPage) + MANUAL_PAGE_COUNT) % MANUAL_PAGE_COUNT;
+    if (rel === 0) page.classList.add('page-front');
+    else if (rel === 1) page.classList.add('page-back-1');
+    else if (rel === 2) page.classList.add('page-back-2');
+    else page.classList.add('page-hidden');
+  }
+  updateManualPageIndicator();
+  setTimeout(updateManualStack, 760);
+}
+
+function manualPrevPage() {
+  if (manualCurrentPage <= 0) return;
+  const oldPage = document.getElementById('manPage' + manualCurrentPage);
+  if (oldPage) {
+    oldPage.classList.remove('page-front');
+    oldPage.classList.add('page-exit-right');
+  }
+  manualCurrentPage--;
+  for (let i = 0; i < MANUAL_PAGE_COUNT; i++) {
+    if (i === manualCurrentPage + 1) continue;
+    const page = document.getElementById('manPage' + i);
+    if (!page) continue;
+    page.classList.remove('page-front','page-back-1','page-back-2','page-hidden');
+    const rel = ((i - manualCurrentPage) + MANUAL_PAGE_COUNT) % MANUAL_PAGE_COUNT;
+    if (rel === 0) page.classList.add('page-front');
+    else if (rel === 1) page.classList.add('page-back-1');
+    else if (rel === 2) page.classList.add('page-back-2');
+    else page.classList.add('page-hidden');
+  }
+  updateManualPageIndicator();
+  setTimeout(updateManualStack, 760);
+}
+
+function toggleManualLang() {
+  manualLang = manualLang === 'en' ? 'cn' : 'en';
+  applyManualLang();
+}
+
+function applyManualLang() {
+  document.querySelectorAll('[data-mn]').forEach(el => {
+    const key = el.dataset.mn;
+    if (MANUAL_I18N[key]) {
+      const val = MANUAL_I18N[key][manualLang];
+      if (key.startsWith('c_')) el.innerHTML = val;
+      else el.textContent = val;
+    }
+  });
+  const btn = document.querySelector('.manual-lang');
+  if (btn) btn.textContent = manualLang === 'en' ? 'EN → 中文' : '中文 → EN';
+}
+
 function switchCfgTab(tab) {
   document.getElementById('cfgTabTheme').classList.toggle('active', tab === 'theme');
   document.getElementById('cfgTabVol').classList.toggle('active', tab === 'volume');
   document.getElementById('cfgTabDiff').classList.toggle('active', tab === 'difficulty');
+
+  const content = document.querySelector('.cfg-content');
+  const startH = content.offsetHeight;
+
   document.getElementById('cfgPaneTheme').style.display = tab === 'theme' ? 'block' : 'none';
   document.getElementById('cfgPaneVolume').style.display = tab === 'volume' ? 'block' : 'none';
   document.getElementById('cfgPaneDifficulty').style.display = tab === 'difficulty' ? 'block' : 'none';
+
+  const endH = content.scrollHeight;
+  if (startH !== endH) {
+    content.style.height = startH + 'px';
+    requestAnimationFrame(() => {
+      content.style.height = endH + 'px';
+    });
+    const onEnd = () => { content.style.height = ''; content.removeEventListener('transitionend', onEnd); };
+    content.addEventListener('transitionend', onEnd);
+  }
 }
 
 function onBgmSlider(el) {

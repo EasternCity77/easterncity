@@ -123,6 +123,14 @@
     <div class="s-tb-hi" id="sHiScore">BEST: —</div>
   </div>
 
+  <!-- Floating manual button (shared across themes) -->
+  <button class="cfg-float-btn manual-float-btn" id="manualBtn" onclick="openManual()" title="操作手册">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
+      <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
+    </svg>
+  </button>
+
   <!-- Floating settings button (shared across themes) -->
   <button class="cfg-float-btn" id="cfgBtn" onclick="openSettings()" title="系统设置">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
@@ -520,6 +528,189 @@
 </div>
 
 <!-- Settings Panel -->
+<!-- ═══ OPERATOR'S MANUAL ═══ -->
+<div id="manualScreen">
+  <div class="manual-panel">
+    <div class="manual-header">
+      <div class="manual-header-left">
+        <span class="manual-title">RHINE LIFE · INTERNAL DOCUMENT</span>
+        <span class="manual-subtitle">FILE NO. RL-OPM-2074 &nbsp;│&nbsp; CLEARANCE: OPERATOR</span>
+      </div>
+      <div class="manual-header-right">
+        <button class="cfg-close manual-lang" onclick="toggleManualLang()">EN → 中文</button>
+        <button class="cfg-close" onclick="closeManual()">ESC ×</button>
+      </div>
+    </div>
+    <div class="manual-body">
+      <div class="manual-stack">
+        <!-- PAGE 1: MOVE -->
+        <div class="manual-page" id="manPage0">
+          <div class="manual-sec-title" data-mn="t_move">§ SECTION 01 — MOVE</div>
+          <div class="manual-text" data-mn="c_move">
+            <p>Navigate your snake across the hexagonal grid.</p>
+            <p><kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> or <kbd>↑</kbd> <kbd>←</kbd> <kbd>↓</kbd> <kbd>→</kbd> — Change direction</p>
+            <p>Eat the flashing food cell to grow longer and earn points. The longer you survive, the higher the threat level rises.</p>
+            <p>Avoid collisions with walls, enemy snakes, and your own body — any contact is fatal.</p>
+          </div>
+          <div class="manual-fig">
+            <div class="manual-fig-label">— FIG. 01 —</div>
+            <div class="manual-fig-content fig-move">
+              <div class="fig-mv-keys">
+                <kbd class="fig-mv-k fig-mv-w">W</kbd>
+                <kbd class="fig-mv-k fig-mv-a">A</kbd>
+                <kbd class="fig-mv-k fig-mv-s">S</kbd>
+                <kbd class="fig-mv-k fig-mv-d">D</kbd>
+              </div>
+              <div class="fig-mv-arena">
+                <div class="fig-mv-snake">
+                  <span class="fig-mv-seg fig-mv-head"></span>
+                  <span class="fig-mv-seg fig-mv-b1"></span>
+                  <span class="fig-mv-seg fig-mv-b2"></span>
+                </div>
+                <span class="fig-mv-arrow">→</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- PAGE 2: COMBO -->
+        <div class="manual-page" id="manPage1">
+          <div class="manual-sec-title" data-mn="t_combo">§ SECTION 02 — COMBO</div>
+          <div class="manual-text" data-mn="c_combo">
+            <p>Eating food in quick succession builds a combo chain:</p>
+            <p>×1.0 → ×1.5 → ×2.0 → ×2.5 → ... → ×4.0 (max)</p>
+            <p>Each food eaten within the combo window extends the timer. If you go too long without eating, the combo resets to ×1.</p>
+            <p>Higher combos mean higher scores — plan your route to chain food pickups efficiently.</p>
+          </div>
+          <div class="manual-fig">
+            <div class="manual-fig-label">— FIG. 02 —</div>
+            <div class="manual-fig-content fig-combo">
+              <div class="fig-combo-num">
+                <span class="fig-cx">×</span>
+                <span class="fig-cn fig-cn1">1</span>
+                <span class="fig-cn fig-cn2">2</span>
+                <span class="fig-cn fig-cn3">3</span>
+                <span class="fig-cn fig-cn4">4</span>
+              </div>
+              <div class="fig-combo-bar"><div class="fig-combo-fill"></div></div>
+            </div>
+          </div>
+        </div>
+        <!-- PAGE 3: LASER -->
+        <div class="manual-page" id="manPage2">
+          <div class="manual-sec-title" data-mn="t_laser">§ SECTION 03 — LASER</div>
+          <div class="manual-text" data-mn="c_laser">
+            <p><kbd>J</kbd> — Fire laser beam in your current direction.</p>
+            <p>The laser has a 5-second cooldown (upgradeable). It damages enemy snakes on contact, removing segments or killing them outright.</p>
+            <p>Upgrade paths include: multi-beam, pierce (penetrate through enemies), double damage, and slow enchantment.</p>
+            <p>The cooldown indicator is shown on the HUD bar at the top.</p>
+          </div>
+          <div class="manual-fig">
+            <div class="manual-fig-label">— FIG. 03 —</div>
+            <div class="manual-fig-content fig-laser">
+              <div class="fig-lsr-src">◆</div>
+              <div class="fig-lsr-beam"></div>
+              <div class="fig-lsr-tgt">◆</div>
+              <div class="fig-lsr-cd"><div class="fig-lsr-cd-fill"></div><span>COOLDOWN</span></div>
+            </div>
+          </div>
+        </div>
+        <!-- PAGE 4: SKILL -->
+        <div class="manual-page" id="manPage3">
+          <div class="manual-sec-title" data-mn="t_skill">§ SECTION 04 — SKILL</div>
+          <div class="manual-text" data-mn="c_skill">
+            <p><kbd>K</kbd> — Time Slow: briefly freeze the world, then slow enemies and bullets to 20% speed while you move at 70%. Cooldown: 20s.</p>
+            <p><kbd>L</kbd> — Tracking Missiles: launch homing missiles that orbit your head, then lock onto and pursue the nearest enemy. Cooldown: 10s.</p>
+            <p>Both skills can be enhanced through the Evolution Tree — increase duration, reduce cooldown, add missile count or pierce.</p>
+          </div>
+          <div class="manual-fig">
+            <div class="manual-fig-label">— FIG. 04 —</div>
+            <div class="manual-fig-content fig-skill">
+              <div class="fig-sk-left">
+                <div class="fig-sk-clock">⏱</div>
+                <span class="fig-sk-dot fig-sk-d1"></span>
+                <span class="fig-sk-dot fig-sk-d2"></span>
+                <span class="fig-sk-dot fig-sk-d3"></span>
+              </div>
+              <div class="fig-sk-right">
+                <div class="fig-sk-orbit-ring"></div>
+                <div class="fig-sk-center">◆</div>
+                <span class="fig-sk-missile"></span>
+                <span class="fig-sk-target">✕</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- PAGE 5: EVO -->
+        <div class="manual-page" id="manPage4">
+          <div class="manual-sec-title" data-mn="t_evo">§ SECTION 05 — EVOLUTION</div>
+          <div class="manual-text" data-mn="c_evo">
+            <p>Collect blue XP orbs dropped by defeated enemies. Fill the XP bar to level up and unlock one evolution node.</p>
+            <p>Three upgrade paths:</p>
+            <p>▸ <span class="mn-branch laser">LASER</span> — More beams, pierce, damage, slow enchant. High investment, devastating control.</p>
+            <p>▸ <span class="mn-branch missile">MISSILE</span> — More missiles, wall pierce, bonus damage. Independent burst path.</p>
+            <p>▸ <span class="mn-branch mobility">MOBILITY</span> — Speed boost, quick turn, time slow upgrades, combo extension, XP boost. Growth-oriented.</p>
+            <p>Each level-up expands the map, giving you more room but also more enemies.</p>
+          </div>
+          <div class="manual-fig">
+            <div class="manual-fig-label">— FIG. 05 —</div>
+            <div class="manual-fig-content fig-evo">
+              <div class="fig-evo-root"></div>
+              <div class="fig-evo-line fig-evo-l1"></div>
+              <div class="fig-evo-line fig-evo-l2"></div>
+              <div class="fig-evo-line fig-evo-l3"></div>
+              <span class="fig-evo-node fig-evo-n1"></span>
+              <span class="fig-evo-node fig-evo-n2"></span>
+              <span class="fig-evo-node fig-evo-n3"></span>
+              <span class="fig-evo-node fig-evo-n4"></span>
+              <span class="fig-evo-node fig-evo-n5"></span>
+              <span class="fig-evo-node fig-evo-n6"></span>
+            </div>
+          </div>
+        </div>
+        <!-- PAGE 6: THREAT -->
+        <div class="manual-page" id="manPage5">
+          <div class="manual-sec-title" data-mn="t_threat">§ SECTION 06 — THREAT</div>
+          <div class="manual-text" data-mn="c_threat">
+            <p>Threat level increases over time. Higher threat means:</p>
+            <p>▸ More enemy snakes spawning on the map</p>
+            <p>▸ Enemies shoot bullets more frequently</p>
+            <p>▸ Bullets gain speed and spread patterns at higher levels</p>
+            <p>Walls appear and disappear periodically — they block movement, lasers, and missiles.</p>
+            <p>Speed items (▲/▼) spawn on the map — collect them to temporarily boost or reduce your speed.</p>
+          </div>
+          <div class="manual-fig">
+            <div class="manual-fig-label">— FIG. 06 —</div>
+            <div class="manual-fig-content fig-threat">
+              <div class="fig-thr-bar">
+                <div class="fig-thr-fill"></div>
+                <span class="fig-thr-lv">THREAT</span>
+              </div>
+              <div class="fig-thr-enemies">
+                <span class="fig-thr-e fig-thr-e1">◆</span>
+                <span class="fig-thr-e fig-thr-e2">◆</span>
+                <span class="fig-thr-e fig-thr-e3">◆</span>
+              </div>
+              <div class="fig-thr-bullets">
+                <span class="fig-thr-b fig-thr-b1">·</span>
+                <span class="fig-thr-b fig-thr-b2">·</span>
+                <span class="fig-thr-b fig-thr-b3">·</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="manual-nav">
+      <button class="manual-nav-btn" id="manPrev" onclick="manualPrevPage()">◁ PREV</button>
+      <span class="manual-page-indicator" id="manPageInd">§1 / §6</span>
+      <button class="manual-nav-btn" id="manNext" onclick="manualNextPage()">NEXT ▷</button>
+    </div>
+    <div class="manual-footer">
+      RL-OPM-2074 · RHINE LIFE PHARMACEUTICAL · [ DECLASSIFIED ]
+    </div>
+  </div>
+</div>
+
 <div id="cfgScreen">
   <div class="cfg-panel">
     <div class="cfg-header">
@@ -723,7 +914,7 @@
 <div id="countdownOverlay" style="
   display:none;position:fixed;inset:0;z-index:200;
   background:rgba(4,3,1,0.88);
-  display:none;align-items:center;justify-content:center;flex-direction:column;gap:18px;
+  align-items:center;justify-content:center;flex-direction:column;gap:18px;
   font-family:'Barlow Condensed',sans-serif;
 ">
   <div style="font-family:'Share Tech Mono',monospace;font-size:14px;letter-spacing:4px;color:rgba(0,255,136,0.55)">UPGRADE INSTALLED · RESUMING IN</div>

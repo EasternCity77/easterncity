@@ -669,7 +669,7 @@ function initMenuBg() {
     let _bgSkip = false;
     function loop() {
       const ss = document.getElementById('startScreen');
-      if (!ss || ss.style.display === 'none') return;
+      if (!ss || ss.style.display === 'none') { menuBgRaf = null; return; }
       // Mobile: 30fps (skip every other frame)
       if (window.perfLevel !== 'high') { _bgSkip = !_bgSkip; if (_bgSkip) { menuBgRaf = requestAnimationFrame(loop); return; } }
       _menuBgInst.frame();

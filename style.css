@@ -1389,8 +1389,537 @@ body{overflow:hidden;background:var(--dark);font-family:'Barlow Condensed',sans-
 }
 .cfg-mem-toggle.on .cfg-mem-label{color:rgba(232,100,10,0.65);}
 
+/* ═══ OPERATOR'S MANUAL — DECLASSIFIED DOSSIER ═══ */
+.manual-float-btn{right:60px;}
+
+#manualScreen{
+  display:none;position:fixed;inset:0;z-index:150;
+  background:rgba(6,4,2,0.85);
+  align-items:center;justify-content:center;
+}
+#manualScreen.show{display:flex;}
+
+.manual-panel{
+  width:680px;max-width:95vw;height:80vh;max-height:88vh;
+  background:#0C0A08;
+  border:1px solid #2A2218;
+  font-family:'Share Tech Mono',monospace;
+  box-shadow:0 0 60px rgba(0,0,0,0.8),0 0 30px rgba(40,20,0,0.15);
+  position:relative;display:flex;flex-direction:column;
+}
+/* Warm scanlines */
+.manual-panel::before{
+  content:'';position:absolute;inset:0;z-index:10;pointer-events:none;
+  background:repeating-linear-gradient(0deg,transparent 0,transparent 3px,rgba(20,12,4,0.08) 3px,rgba(20,12,4,0.08) 4px);
+}
+/* Corner brackets: warm amber */
+.manual-panel::after{
+  content:'';position:absolute;inset:0;z-index:11;pointer-events:none;
+  background:
+    linear-gradient(rgba(180,120,40,0.3),rgba(180,120,40,0.3)) top left / 16px 1px no-repeat,
+    linear-gradient(rgba(180,120,40,0.3),rgba(180,120,40,0.3)) top left / 1px 16px no-repeat,
+    linear-gradient(rgba(180,120,40,0.3),rgba(180,120,40,0.3)) top right / 16px 1px no-repeat,
+    linear-gradient(rgba(180,120,40,0.3),rgba(180,120,40,0.3)) top right / 1px 16px no-repeat,
+    linear-gradient(rgba(140,50,30,0.2),rgba(140,50,30,0.2)) bottom left / 16px 1px no-repeat,
+    linear-gradient(rgba(140,50,30,0.2),rgba(140,50,30,0.2)) bottom left / 1px 16px no-repeat,
+    linear-gradient(rgba(140,50,30,0.2),rgba(140,50,30,0.2)) bottom right / 16px 1px no-repeat,
+    linear-gradient(rgba(140,50,30,0.2),rgba(140,50,30,0.2)) bottom right / 1px 16px no-repeat;
+}
+
+/* ── Header: file info ── */
+.manual-header{
+  display:flex;align-items:flex-start;justify-content:space-between;
+  padding:14px 20px 12px;
+  background:#0A0806;
+  border-bottom:1px solid #2A2218;
+  flex-shrink:0;
+}
+.manual-header-left{display:flex;flex-direction:column;gap:3px;}
+.manual-title{font-size:12px;letter-spacing:3px;color:rgba(200,160,80,0.8);}
+.manual-subtitle{font-size:9px;letter-spacing:2px;color:rgba(160,130,80,0.4);}
+.manual-header-right{display:flex;gap:8px;align-items:flex-start;padding-top:2px;}
+.manual-lang{color:rgba(160,130,80,0.5);border-color:#2A2218;}
+.manual-lang:hover{color:rgba(200,160,80,0.8);border-color:rgba(200,160,80,0.4);}
+
+/* ── Body: stacked pages container ── */
+.manual-body{
+  position:relative;flex:1;min-height:0;
+  overflow:hidden;padding:8px 8px 0;
+}
+.manual-stack{position:relative;width:100%;height:100%;}
+
+/* ── Stacked page cards ── */
+.manual-page{
+  position:absolute;inset:0;
+  background:#120E0A;
+  padding:24px 28px;
+  overflow-y:auto;
+  transition:transform .7s ease,opacity .7s ease,box-shadow .7s ease;
+  opacity:0;pointer-events:none;z-index:1;
+  border:1px solid rgba(160,130,80,0.15);
+  box-shadow:inset 0 0 30px rgba(20,12,4,0.3);
+}
+/* DECLASSIFIED watermark on each page */
+.manual-page::after{
+  content:'DECLASSIFIED';
+  position:absolute;top:50%;left:50%;
+  transform:translate(-50%,-50%) rotate(-35deg);
+  font-family:'Barlow Condensed',sans-serif;font-weight:900;
+  font-size:64px;letter-spacing:12px;
+  color:rgba(180,40,40,0.055);
+  white-space:nowrap;pointer-events:none;z-index:-1;
+}
+/* Front page: fully visible */
+.manual-page.page-front{
+  z-index:5;transform:translate(0,0) rotate(0deg);opacity:1;pointer-events:auto;
+  background:#120E0A;
+  box-shadow:-4px 4px 20px rgba(0,0,0,0.6),0 0 40px rgba(0,0,0,0.15),inset 0 0 30px rgba(20,12,4,0.3);
+}
+/* Second page peeking behind — slight tilt */
+.manual-page.page-back-1{
+  z-index:4;transform:translate(5px,5px) rotate(1deg);opacity:1;
+  background:#100C08;pointer-events:none;
+}
+/* Third page peeking behind — opposite tilt */
+.manual-page.page-back-2{
+  z-index:3;transform:translate(10px,10px) rotate(-1.5deg);opacity:1;
+  background:#0E0A06;pointer-events:none;
+}
+.manual-page.page-hidden{z-index:1;opacity:0;pointer-events:none;}
+/* Exit animations — slower with rotation */
+.manual-page.page-exit-left{
+  transform:translateX(-110%) rotate(-4.5deg);opacity:0;
+  transition:transform .75s ease-in,opacity .6s ease;
+  box-shadow:0 8px 30px rgba(0,0,0,0.7),inset 0 0 30px rgba(20,12,4,0.3);
+  z-index:6;
+}
+.manual-page.page-exit-right{
+  transform:translateX(110%) rotate(4.5deg);opacity:0;
+  transition:transform .75s ease-in,opacity .6s ease;
+  box-shadow:0 8px 30px rgba(0,0,0,0.7),inset 0 0 30px rgba(20,12,4,0.3);
+  z-index:6;
+}
+
+/* ── Navigation bar ── */
+.manual-nav{
+  flex-shrink:0;display:flex;align-items:center;justify-content:space-between;
+  padding:10px 20px;background:#0A0806;
+  border-top:1px solid #2A2218;
+  font-family:'Share Tech Mono',monospace;
+}
+.manual-nav-btn{
+  background:rgba(200,160,80,0.06);
+  border:1px solid rgba(200,160,80,0.2);
+  color:rgba(200,160,80,0.6);
+  font-family:'Share Tech Mono',monospace;
+  font-size:11px;letter-spacing:2px;
+  padding:6px 18px;cursor:pointer;
+  transition:all .15s;
+}
+.manual-nav-btn:hover{
+  background:rgba(200,160,80,0.12);
+  color:rgba(200,160,80,0.9);
+  border-color:rgba(200,160,80,0.5);
+}
+.manual-nav-btn:disabled{opacity:0.25;cursor:default;pointer-events:none;}
+.manual-page-indicator{
+  font-size:10px;letter-spacing:2px;
+  color:rgba(160,130,80,0.4);
+}
+.manual-sec-title{
+  font-size:11px;letter-spacing:2.5px;color:rgba(200,160,80,0.65);
+  margin-bottom:18px;padding-bottom:10px;
+  border-bottom:1px dashed rgba(200,160,80,0.12);
+}
+.manual-text{
+  font-size:13px;line-height:1.9;color:rgba(200,190,170,0.65);
+  letter-spacing:0.3px;
+}
+.manual-text p{margin:0 0 12px 0;}
+.manual-text kbd{
+  display:inline-block;
+  padding:2px 7px;margin:0 2px;
+  background:rgba(200,160,80,0.06);border:1px solid rgba(200,160,80,0.18);
+  border-radius:2px;
+  font-family:'Share Tech Mono',monospace;
+  font-size:12px;color:rgba(200,160,80,0.85);
+  box-shadow:0 1px 2px rgba(0,0,0,0.3);
+}
+.mn-branch{font-weight:700;letter-spacing:1px;}
+
+/* ── Footer: document reference ── */
+.manual-footer{
+  flex-shrink:0;padding:8px 20px;
+  background:#0A0806;
+  border-top:1px solid #2A2218;
+  font-size:8px;letter-spacing:2.5px;
+  color:rgba(160,130,80,0.25);
+  text-align:center;
+}
+.mn-branch.laser{color:rgba(232,100,10,0.85);}
+.mn-branch.missile{color:rgba(0,200,220,0.85);}
+.mn-branch.mobility{color:rgba(0,168,150,0.85);}
+
+/* ═══ MANUAL FIGURE ANIMATIONS ═══ */
+.manual-fig{
+  margin-top:20px;padding-top:16px;
+  border-top:1px dashed rgba(200,160,80,0.1);
+}
+.manual-fig-label{
+  text-align:center;font-size:9px;letter-spacing:3px;
+  color:rgba(160,130,80,0.3);margin-bottom:12px;
+}
+.manual-fig-content{
+  position:relative;height:120px;
+  background:rgba(10,8,4,0.4);
+  border:1px solid rgba(160,130,80,0.08);
+  border-radius:2px;overflow:hidden;
+}
+
+/* ── FIG.01 MOVE: direction keys + snake ── */
+.fig-move{display:flex;align-items:center;justify-content:center;gap:24px;height:100%;}
+.fig-mv-keys{
+  position:relative;width:80px;height:80px;flex-shrink:0;
+}
+.fig-mv-k{
+  position:absolute;
+  width:22px;height:22px;
+  display:flex;align-items:center;justify-content:center;
+  background:rgba(200,160,80,0.06);border:1px solid rgba(200,160,80,0.15);
+  border-radius:2px;
+  font-family:'Share Tech Mono',monospace;
+  font-size:10px;color:rgba(200,160,80,0.35);
+  transition:all .2s;
+}
+.fig-mv-w{left:29px;top:4px}
+.fig-mv-a{left:4px;top:30px}
+.fig-mv-s{left:29px;top:56px}
+.fig-mv-d{left:54px;top:30px}
+/* Key highlight cycle: D→S→A→W */
+.fig-mv-d{animation:figKeyHi 6s ease infinite 0s}
+.fig-mv-s{animation:figKeyHi 6s ease infinite 1.5s}
+.fig-mv-a{animation:figKeyHi 6s ease infinite 3s}
+.fig-mv-w{animation:figKeyHi 6s ease infinite 4.5s}
+@keyframes figKeyHi{
+  0%,20%{
+    background:rgba(200,160,80,0.25);border-color:rgba(200,160,80,0.6);
+    color:rgba(200,160,80,0.9);box-shadow:0 0 8px rgba(200,160,80,0.2);
+  }
+  25%,100%{
+    background:rgba(200,160,80,0.06);border-color:rgba(200,160,80,0.15);
+    color:rgba(200,160,80,0.35);box-shadow:none;
+  }
+}
+.fig-mv-arena{
+  position:relative;width:120px;height:80px;
+  border:1px solid rgba(200,160,80,0.08);
+  border-radius:2px;overflow:hidden;
+}
+.fig-mv-seg{
+  position:absolute;width:10px;height:10px;border-radius:2px;
+}
+.fig-mv-head{
+  background:rgba(200,160,80,0.8);
+  box-shadow:0 0 6px rgba(200,160,80,0.4);
+  animation:figMvHead 6s linear infinite;
+}
+.fig-mv-b1{
+  background:rgba(200,160,80,0.45);
+  animation:figMvB1 6s linear infinite;
+}
+.fig-mv-b2{
+  background:rgba(200,160,80,0.25);
+  animation:figMvB2 6s linear infinite;
+}
+.fig-mv-arrow{
+  position:absolute;
+  font-size:14px;color:rgba(200,160,80,0.5);
+  animation:figMvArrow 6s steps(1) infinite;
+}
+/* Snake path: right → down → left → up (square loop) */
+@keyframes figMvHead{
+  0%{left:20px;top:20px}
+  25%{left:95px;top:20px}
+  50%{left:95px;top:58px}
+  75%{left:20px;top:58px}
+  100%{left:20px;top:20px}
+}
+@keyframes figMvB1{
+  0%{left:10px;top:20px}
+  2%{left:10px;top:20px}
+  27%{left:85px;top:20px}
+  52%{left:95px;top:48px}
+  77%{left:30px;top:58px}
+  100%{left:20px;top:30px}
+}
+@keyframes figMvB2{
+  0%{left:20px;top:30px}
+  4%{left:20px;top:30px}
+  29%{left:75px;top:20px}
+  54%{left:95px;top:38px}
+  79%{left:40px;top:58px}
+  100%{left:20px;top:40px}
+}
+@keyframes figMvArrow{
+  0%{left:34px;top:16px;content:'→'}
+  25%{left:91px;top:28px;content:'↓'}
+  50%{left:80px;top:54px;content:'←'}
+  75%{left:16px;top:42px;content:'↑'}
+}
+
+/* ── FIG.02 COMBO: multiplier cycle ── */
+.fig-combo{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;}
+.fig-combo-num{
+  position:relative;
+  font-family:'Barlow Condensed',sans-serif;font-weight:900;
+  font-size:42px;letter-spacing:2px;
+  height:50px;display:flex;align-items:center;
+}
+.fig-cx{color:rgba(200,160,80,0.4);font-size:28px;position:relative;z-index:2;}
+.fig-cn{
+  position:absolute;left:calc(50% + 6px);
+  opacity:0;
+  transition:none;
+}
+.fig-cn1{animation:figCn1 6s steps(1) infinite}
+.fig-cn2{animation:figCn2 6s steps(1) infinite}
+.fig-cn3{animation:figCn3 6s steps(1) infinite}
+.fig-cn4{animation:figCn4 6s steps(1) infinite}
+@keyframes figCn1{
+  0%{opacity:1;color:rgba(200,190,170,0.5);transform:scale(1)}
+  2%{transform:scale(1.3)}6%{transform:scale(1)}
+  25%{opacity:0}
+}
+@keyframes figCn2{
+  0%,24%{opacity:0}
+  25%{opacity:1;color:rgba(200,160,80,0.7);transform:scale(1)}
+  27%{transform:scale(1.3)}31%{transform:scale(1)}
+  50%{opacity:0}
+}
+@keyframes figCn3{
+  0%,49%{opacity:0}
+  50%{opacity:1;color:rgba(232,140,40,0.85);transform:scale(1)}
+  52%{transform:scale(1.3)}56%{transform:scale(1)}
+  75%{opacity:0}
+}
+@keyframes figCn4{
+  0%,74%{opacity:0}
+  75%{opacity:1;color:rgba(255,200,60,1);text-shadow:0 0 12px rgba(255,200,60,0.5);transform:scale(1)}
+  77%{transform:scale(1.3)}81%{transform:scale(1)}
+  100%{opacity:0}
+}
+.fig-combo-bar{
+  width:60%;height:4px;margin-top:14px;
+  background:rgba(200,160,80,0.1);border-radius:2px;overflow:hidden;
+}
+.fig-combo-fill{
+  height:100%;width:100%;
+  background:linear-gradient(90deg,rgba(200,160,80,0.5),rgba(232,140,40,0.7));
+  animation:figComboBar 1.5s linear infinite;
+  transform-origin:right;
+}
+@keyframes figComboBar{
+  0%{transform:scaleX(1)}
+  100%{transform:scaleX(0)}
+}
+
+/* ── FIG.03 LASER: beam fire ── */
+.fig-laser{display:flex;align-items:center;padding:0 30px;height:100%;}
+.fig-lsr-src{
+  color:rgba(200,160,80,0.8);font-size:18px;flex-shrink:0;
+  position:relative;z-index:2;
+}
+.fig-lsr-beam{
+  flex:1;height:2px;margin:0 4px;
+  background:rgba(232,100,10,0.7);
+  box-shadow:0 0 8px rgba(232,100,10,0.4);
+  transform-origin:left;
+  animation:figLaserBeam 4s ease-out infinite;
+}
+.fig-lsr-tgt{
+  color:rgba(180,50,40,0.7);font-size:18px;flex-shrink:0;
+  animation:figLaserHit 4s ease-out infinite;
+}
+.fig-lsr-cd{
+  position:absolute;bottom:12px;left:50%;transform:translateX(-50%);
+  width:50%;height:3px;background:rgba(200,160,80,0.1);
+  border-radius:2px;overflow:hidden;
+}
+.fig-lsr-cd span{
+  position:absolute;top:-14px;left:50%;transform:translateX(-50%);
+  font-size:8px;letter-spacing:2px;color:rgba(160,130,80,0.25);
+}
+.fig-lsr-cd-fill{
+  height:100%;width:0;
+  background:rgba(200,160,80,0.5);
+  animation:figLaserCD 4s linear infinite;
+}
+@keyframes figLaserBeam{
+  0%,5%{transform:scaleX(0);opacity:0}
+  10%{opacity:1}
+  25%{transform:scaleX(1);opacity:1}
+  35%{opacity:0.8}
+  40%,100%{transform:scaleX(1);opacity:0}
+}
+@keyframes figLaserHit{
+  0%,25%{opacity:1;transform:scale(1)}
+  30%{opacity:0.3;transform:scale(1.3)}
+  40%{opacity:0;transform:scale(0.5)}
+  90%{opacity:0}
+  100%{opacity:1;transform:scale(1)}
+}
+@keyframes figLaserCD{
+  0%,40%{width:0}
+  100%{width:100%}
+}
+
+/* ── FIG.04 SKILL: time slow + missile ── */
+.fig-skill{display:flex;align-items:center;justify-content:space-around;height:100%;}
+.fig-sk-left{position:relative;width:40%;height:80%;display:flex;align-items:center;justify-content:center;}
+.fig-sk-clock{font-size:28px;color:rgba(200,160,80,0.6);animation:figSkClock 4s ease-in-out infinite;}
+.fig-sk-dot{
+  position:absolute;width:5px;height:5px;border-radius:50%;
+  background:rgba(200,160,80,0.5);
+}
+.fig-sk-d1{animation:figSkDot 4s ease-in-out infinite;top:20%;left:70%}
+.fig-sk-d2{animation:figSkDot 4s ease-in-out infinite 0.3s;top:60%;left:75%}
+.fig-sk-d3{animation:figSkDot 4s ease-in-out infinite 0.6s;top:40%;left:20%}
+@keyframes figSkClock{
+  0%,100%{opacity:0.4}
+  30%{opacity:1;text-shadow:0 0 12px rgba(200,160,80,0.4)}
+  70%{opacity:1}
+}
+@keyframes figSkDot{
+  0%{transform:translateX(0);opacity:0.3}
+  30%{transform:translateX(8px);opacity:0.8}
+  50%,100%{transform:translateX(2px);opacity:0.15}
+}
+.fig-sk-right{position:relative;width:40%;height:80%;display:flex;align-items:center;justify-content:center;}
+.fig-sk-orbit-ring{
+  width:50px;height:50px;border-radius:50%;
+  border:1px dashed rgba(0,200,220,0.15);
+  position:absolute;
+}
+.fig-sk-center{color:rgba(200,160,80,0.5);font-size:14px;}
+.fig-sk-missile{
+  position:absolute;width:6px;height:6px;border-radius:50%;
+  background:rgba(0,200,220,0.8);
+  box-shadow:0 0 6px rgba(0,200,220,0.5);
+  animation:figSkMissile 3s ease-in-out infinite;
+}
+.fig-sk-target{
+  position:absolute;top:10%;right:10%;
+  color:rgba(180,50,40,0.5);font-size:14px;
+  animation:figSkTarget 3s ease-in-out infinite;
+}
+@keyframes figSkMissile{
+  0%{top:50%;left:22%;transform:translate(-50%,-50%)}
+  25%{top:20%;left:50%}
+  50%{top:50%;left:78%}
+  70%{top:15%;right:10%;left:auto}
+  75%,100%{top:12%;right:12%;left:auto;opacity:0}
+}
+@keyframes figSkTarget{
+  0%,70%{opacity:0.5}
+  75%{opacity:0;transform:scale(1.5)}
+  90%,100%{opacity:0.5;transform:scale(1)}
+}
+
+/* ── FIG.05 EVO: tree pulse ── */
+.fig-evo{height:100%;}
+.fig-evo-root{
+  position:absolute;left:50%;top:50%;
+  width:10px;height:10px;border-radius:50%;
+  background:rgba(200,160,80,0.6);
+  transform:translate(-50%,-50%);
+  box-shadow:0 0 8px rgba(200,160,80,0.3);
+}
+.fig-evo-line{
+  position:absolute;height:1px;
+  background:rgba(200,160,80,0.15);
+  transform-origin:left center;
+}
+.fig-evo-l1{left:50%;top:50%;width:80px;transform:rotate(-145deg)}
+.fig-evo-l2{left:50%;top:50%;width:80px;transform:rotate(-35deg)}
+.fig-evo-l3{left:50%;top:50%;width:80px;transform:rotate(90deg)}
+.fig-evo-node{
+  position:absolute;width:8px;height:8px;border-radius:50%;
+  border:1px solid rgba(200,160,80,0.2);
+  background:transparent;
+}
+/* Laser branch (orange) */
+.fig-evo-n1{left:32%;top:25%;animation:figEvoP 4s ease-in-out infinite 0.3s}
+.fig-evo-n2{left:22%;top:18%;animation:figEvoP 4s ease-in-out infinite 0.8s}
+/* Missile branch (cyan) */
+.fig-evo-n3{left:62%;top:25%;animation:figEvoPM 4s ease-in-out infinite 0.5s}
+.fig-evo-n4{left:72%;top:18%;animation:figEvoPM 4s ease-in-out infinite 1.0s}
+/* Mobility branch (teal) */
+.fig-evo-n5{left:44%;top:72%;animation:figEvoPB 4s ease-in-out infinite 0.4s}
+.fig-evo-n6{left:50%;top:85%;animation:figEvoPB 4s ease-in-out infinite 0.9s}
+@keyframes figEvoP{
+  0%,100%{background:transparent;box-shadow:none}
+  40%,60%{background:rgba(232,100,10,0.7);box-shadow:0 0 10px rgba(232,100,10,0.4)}
+}
+@keyframes figEvoPM{
+  0%,100%{background:transparent;box-shadow:none}
+  40%,60%{background:rgba(0,200,220,0.7);box-shadow:0 0 10px rgba(0,200,220,0.4)}
+}
+@keyframes figEvoPB{
+  0%,100%{background:transparent;box-shadow:none}
+  40%,60%{background:rgba(0,168,150,0.7);box-shadow:0 0 10px rgba(0,168,150,0.4)}
+}
+
+/* ── FIG.06 THREAT: escalation ── */
+.fig-threat{display:flex;align-items:center;padding:0 20px;gap:20px;height:100%;}
+.fig-thr-bar{
+  position:relative;flex:1;height:14px;
+  background:rgba(200,160,80,0.08);
+  border:1px solid rgba(200,160,80,0.1);
+  border-radius:2px;overflow:hidden;
+}
+.fig-thr-fill{
+  height:100%;width:0;
+  background:linear-gradient(90deg,rgba(80,180,80,0.6),rgba(220,180,40,0.7),rgba(200,50,30,0.8));
+  animation:figThrFill 6s ease-in-out infinite;
+}
+.fig-thr-lv{
+  position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  font-size:7px;letter-spacing:2px;color:rgba(200,160,80,0.3);
+}
+.fig-thr-enemies{display:flex;flex-direction:column;gap:6px;}
+.fig-thr-e{
+  font-size:12px;color:rgba(180,50,40,0.6);opacity:0;
+}
+.fig-thr-e1{animation:figThrE 6s ease-in-out infinite 1s}
+.fig-thr-e2{animation:figThrE 6s ease-in-out infinite 2.5s}
+.fig-thr-e3{animation:figThrE 6s ease-in-out infinite 4s}
+.fig-thr-bullets{
+  display:flex;flex-direction:column;gap:4px;width:30px;
+}
+.fig-thr-b{
+  font-size:16px;color:rgba(200,160,80,0.5);
+  position:relative;
+}
+.fig-thr-b1{animation:figThrB 2s linear infinite}
+.fig-thr-b2{animation:figThrB 1.4s linear infinite 0.3s}
+.fig-thr-b3{animation:figThrB 0.9s linear infinite 0.6s}
+@keyframes figThrFill{
+  0%,5%{width:0}
+  80%{width:100%}
+  90%,100%{width:0}
+}
+@keyframes figThrE{
+  0%{opacity:0;transform:scale(0.5)}
+  15%,70%{opacity:1;transform:scale(1)}
+  85%,100%{opacity:0;transform:scale(0.5)}
+}
+@keyframes figThrB{
+  0%{transform:translateX(0);opacity:0.6}
+  100%{transform:translateX(20px);opacity:0}
+}
+
 /* ── Content Area ── */
-.cfg-content{flex:1;background:#0E1B2A;padding:24px 28px;min-width:0;}
+.cfg-content{flex:1;background:#0E1B2A;padding:24px 28px;min-width:0;transition:height .3s ease;overflow:hidden;}
 .cfg-pane{display:block;}
 .cfg-section-title{
   font-size:10px;letter-spacing:2.5px;color:rgba(232,100,10,0.5);
