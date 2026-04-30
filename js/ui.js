@@ -786,9 +786,6 @@ function goToHome() {
   gameActive = false; deathTime = 0;
   Audio.stopAllBgm();
   if (animId) { cancelAnimationFrame(animId); animId = null; }
-  // Mobile: hide touch controls, unlock orientation
-  if (typeof showTouchControls === 'function') showTouchControls(false);
-  if (typeof unlockOrientation === 'function') unlockOrientation();
   document.body.classList.remove('game-active');
   // 3D cleanup
   if (gameMode === '3d') { cube3D.active = false; document.getElementById('minimap3d').classList.remove('show'); }
@@ -831,9 +828,14 @@ function toggleGameMode() {
     sA.classList.add('active');
     sB.classList.remove('active');
   }
-  document.getElementById('launchBtn').textContent = gameMode === '2d' ? '▶ 开始任务' : '▶ 进入立方体';
+  const disabled3D = gameMode === '3d' && DISABLE_3D;
+  document.getElementById('launchBtn').textContent = gameMode === '2d' ? '▶ 开始任务' : (DISABLE_3D ? '▶ 3D 模式暂未开放' : '▶ 进入立方体');
+  document.getElementById('launchBtn').disabled = disabled3D;
   const spLaunch = document.getElementById('spLaunchBtn');
-  if (spLaunch) spLaunch.textContent = gameMode === '2d' ? '▶ 开始游戏' : '▶ 进入立方体';
+  if (spLaunch) {
+    spLaunch.textContent = gameMode === '2d' ? '▶ 开始游戏' : (DISABLE_3D ? '▶ 3D 模式暂未开放' : '▶ 进入立方体');
+    spLaunch.disabled = disabled3D;
+  }
   const spA = document.getElementById('spModeA'), spB = document.getElementById('spModeB');
   if (spA && spB) {
     spA.classList.toggle('active', gameMode === '2d');
@@ -1221,8 +1223,6 @@ function deathTransition() {
   // Schedule game over screen after animation completes
   setTimeout(() => {
     gameActive = false;
-    // Mobile: hide touch controls
-    if (typeof showTouchControls === 'function') showTouchControls(false);
     document.body.classList.remove('game-active');
     _showGameOverScreen();
   }, 1600);

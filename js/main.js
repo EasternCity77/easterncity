@@ -20,6 +20,9 @@ window.addEventListener('DOMContentLoaded', () => {
   // Canvas sizing handled dynamically in drawEvoTree()
   evoCanvas.addEventListener('click',onEvoClick);
   document.addEventListener('keydown',onKey);
+  canvas.addEventListener('touchstart', onTouchStart, {passive: false});
+  canvas.addEventListener('touchmove',  onTouchMove,  {passive: false});
+  canvas.addEventListener('touchend',   onTouchEnd,   {passive: false});
   window.addEventListener('resize',resizeGame);
   resizeGame();
 

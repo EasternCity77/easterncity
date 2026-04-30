@@ -62,35 +62,6 @@
 <div id="effectBar"></div>
 <div id="flashMsg"></div>
 
-<!-- ══ MOBILE TOUCH CONTROLS ══ -->
-<div id="touchControls" style="display:none">
-  <!-- D-Pad (left side) -->
-  <div class="dpad-container">
-    <button id="dpad-up" class="dpad-btn dpad-up" aria-label="Up"></button>
-    <button id="dpad-left" class="dpad-btn dpad-left" aria-label="Left"></button>
-    <button id="dpad-right" class="dpad-btn dpad-right" aria-label="Right"></button>
-    <button id="dpad-down" class="dpad-btn dpad-down" aria-label="Down"></button>
-  </div>
-  <!-- Skill buttons (right side) -->
-  <div class="skill-container">
-    <button id="btn-laser" class="skill-btn" aria-label="Laser">J</button>
-    <button id="btn-timeslow" class="skill-btn" aria-label="Time Slow">K</button>
-    <button id="btn-missile" class="skill-btn" aria-label="Missile">L</button>
-  </div>
-</div>
-
-<!-- ══ ROTATE DEVICE PROMPT ══ -->
-<div id="rotatePrompt">
-  <div class="rotate-inner">
-    <svg class="rotate-icon" viewBox="0 0 64 64" width="64" height="64">
-      <rect x="16" y="8" width="32" height="48" rx="4" fill="none" stroke="currentColor" stroke-width="2.5"/>
-      <path d="M52 32 l8-6 l0 12z" fill="currentColor"/>
-    </svg>
-    <p>请旋转设备至横屏</p>
-    <p style="font-size:12px;opacity:0.6">Rotate device to landscape</p>
-  </div>
-</div>
-
 <!-- ══ START SCREEN — CASSETTE FUTURISM ══ -->
 <div id="startScreen" class="overlay">
   <canvas id="startBg"></canvas>
@@ -302,15 +273,15 @@
           <div class="s-touch-hints">
             <div class="s-touch-row">
               <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v8M12 22v-8M2 12h8M22 12h-8"/><polyline points="8 8 12 4 16 8"/><polyline points="8 16 12 20 16 16"/><polyline points="4 8 4 12 8 16"/><polyline points="20 8 20 12 16 16"/></svg>
-              <span>左侧 D-Pad 控制移动方向</span>
+              <span>单指滑动控制方向</span>
             </div>
             <div class="s-touch-row">
               <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/></svg>
-              <span>右侧按钮释放技能 (J / K / L)</span>
+              <span>双指点击=激光 · 三指点击=飞弹</span>
             </div>
             <div class="s-touch-row">
               <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polygon points="12 2 15 10 24 10 17 15 19 23 12 18 5 23 7 15 0 10 9 10"/></svg>
-              <span>● XP球触发升级 · ▲加速 · ▼减速</span>
+              <span>时缓自动释放 · ● XP球触发升级</span>
             </div>
           </div>
         </div>
@@ -456,15 +427,15 @@
           <div class="sp-touch-hints">
             <div class="sp-touch-row">
               <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v8M12 22v-8M2 12h8M22 12h-8"/><polyline points="8 8 12 4 16 8"/><polyline points="8 16 12 20 16 16"/><polyline points="4 8 4 12 8 16"/><polyline points="20 8 20 12 16 16"/></svg>
-              <span>左侧 D-Pad 控制移动方向</span>
+              <span>单指滑动控制方向</span>
             </div>
             <div class="sp-touch-row">
               <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/></svg>
-              <span>右侧按钮释放技能 (J / K / L)</span>
+              <span>双指点击=激光 · 三指点击=飞弹</span>
             </div>
             <div class="sp-touch-row">
               <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polygon points="12 2 15 10 24 10 17 15 19 23 12 18 5 23 7 15 0 10 9 10"/></svg>
-              <span>● XP球触发升级 · ▲加速 · ▼减速</span>
+              <span>时缓自动释放 · ● XP球触发升级</span>
             </div>
           </div>
         </div>
@@ -1238,7 +1209,7 @@
 <script src="js/game-2d.js"></script>
 <script src="js/game-3d.js"></script>
 <script src="js/background.js"></script>
-<script src="js/touch-input.js"></script>
+<script src="js/device.js"></script>
 <script src="js/main.js"></script>
 </body>
 </html>

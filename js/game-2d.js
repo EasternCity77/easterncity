@@ -3,7 +3,153 @@
 // ═══ game-2d.js ═══
 // 2D mode: init, start, loop, tick, food, enemies, bullets, laser, input, render
 
-let foodParticles = [];
+// ═══════════════════════════════════════════════
+// ═══ PARTICLE SYSTEM ═══
+// ═══════════════════════════════════════════════
+
+// Particle type enum
+const ParticleType = {
+  BURST: 'burst',
+  FLASH_RING: 'ring',
+  TRAIL: 'trail'
+};
+
+// Base particle class
+class Particle {
+  constructor(type, x, y, life, decay, color) {
+    this.type = type;
+    this.x = x; this.y = y;
+    this.life = life; this.maxLife = life;
+    this.decay = decay;
+    this.color = color;
+    this.dead = false;
+  }
+  update() {
+    this.life -= this.decay;
+    if (this.life <= 0) this.dead = true;
+  }
+  render(ctx) { /* override in subclass */ }
+}
+
+// Burst particle - explodes outward with gravity
+class BurstParticle extends Particle {
+  constructor(x, y, vx, vy, life, decay, color, size) {
+    super(ParticleType.BURST, x, y, life, decay, color);
+    this.vx = vx; this.vy = vy;
+    this.size = size;
+    this.gravity = 0.05;
+  }
+  update() {
+    super.update();
+    this.x += this.vx;
+    this.y += this.vy;
+    this.vy += this.gravity;
+  }
+  render(ctx) {
+    ctx.save();
+    ctx.globalAlpha = this.life;
+    ctx.fillStyle = this.color;
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+}
+
+// Flash ring particle - expands in place
+class FlashRingParticle extends Particle {
+  constructor(x, y, initialRadius, life, decay, color) {
+    super(ParticleType.FLASH_RING, x, y, life, decay, color);
+    this.initialRadius = initialRadius;
+    this.expandSpeed = 25;
+  }
+  render(ctx) {
+    ctx.save();
+    const radius = this.initialRadius + (1 - this.life) * this.expandSpeed;
+    ctx.globalAlpha = this.life * 0.8;
+    ctx.strokeStyle = this.color;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, radius, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  }
+}
+
+// Trail particle - static fading dot for missile trails
+class TrailParticle extends Particle {
+  constructor(x, y, life, decay, color, size, baseAlpha) {
+    super(ParticleType.TRAIL, x, y, life, decay, color);
+    this.size = size;
+    this.baseAlpha = baseAlpha;
+  }
+  render(ctx) {
+    ctx.save();
+    const alpha = this.life * this.baseAlpha;
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = this.color;
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+}
+
+// Particle System Manager
+const ParticleSystem = {
+  pools: {
+    burst: [],
+    ring: [],
+    trail: []
+  },
+
+  // Backward compatibility alias
+  get particles() {
+    return this.pools.burst;
+  },
+  set particles(val) {
+    this.pools.burst = val;
+  },
+
+  createBurst(x, y, vx, vy, life, decay, color, size) {
+    this.pools.burst.push(new BurstParticle(x, y, vx, vy, life, decay, color, size));
+  },
+
+  createFlashRing(x, y, initialRadius, life, decay, color) {
+    this.pools.ring.push(new FlashRingParticle(x, y, initialRadius, life, decay, color));
+  },
+
+  createTrail(x, y, life, decay, color, size, baseAlpha) {
+    this.pools.trail.push(new TrailParticle(x, y, life, decay, color, size, baseAlpha));
+  },
+
+  update() {
+    this.pools.burst = this.pools.burst.filter(p => { p.update(); return !p.dead; });
+    this.pools.ring = this.pools.ring.filter(p => { p.update(); return !p.dead; });
+    this.pools.trail = this.pools.trail.filter(p => { p.update(); return !p.dead; });
+  },
+
+  render(ctx) {
+    this.pools.burst.forEach(p => p.render(ctx));
+    this.pools.ring.forEach(p => p.render(ctx));
+    this.pools.trail.forEach(p => p.render(ctx));
+  },
+
+  clear() {
+    this.pools.burst = [];
+    this.pools.ring = [];
+    this.pools.trail = [];
+  }
+};
+
+// Backward compatibility alias
+let foodParticles;
+Object.defineProperty(globalThis, 'foodParticles', {
+  get: () => ParticleSystem.pools.burst,
+  set: (val) => { ParticleSystem.pools.burst = val; },
+  configurable: true
+});
+
 let missileShakeTime = 0;
 let missileShakeIntensity = 0;
 
@@ -13,10 +159,8 @@ let missileShakeIntensity = 0;
 function gridToPixel(gx, gy, cS) {
   const W = window.innerWidth;
   const H = window.innerHeight;
-  const isPortrait = typeof isMobile !== 'undefined' && isMobile && H > W;
-  const CTRL_H = isPortrait ? 170 : 0;
   const ox = Math.floor((W - gCols * cS) / 2);
-  const oy = HUD_H + Math.floor((H - HUD_H - CTRL_H - gRows * cS) / 2);
+  const oy = HUD_H + Math.floor((H - HUD_H - gRows * cS) / 2);
   return [ox + gx * cS + cS / 2, oy + gy * cS + cS / 2];
 }
 
@@ -91,14 +235,15 @@ const FOOD_EAT_EFFECTS = {
     for (let i = 0; i < 12; i++) {
       const a = Math.PI * 2 * i / 12;
       const spd = 1.5 + Math.random() * 2;
-      foodParticles.push({
-        x: px, y: py,
-        vx: Math.cos(a) * spd,
-        vy: Math.sin(a) * spd,
-        life: 1.0,
-        decay: 0.03 + Math.random() * 0.02,
-        color: BURST_COLS[i % 4]
-      });
+      ParticleSystem.createBurst(
+        px, py,
+        Math.cos(a) * spd,
+        Math.sin(a) * spd,
+        1.0,
+        0.03 + Math.random() * 0.02,
+        BURST_COLS[i % 4],
+        2
+      );
     }
   },
 };
@@ -113,14 +258,15 @@ function resizeGame() {
   canvas.style.width=W+'px'; canvas.style.height=H+'px';
   canvas.width=W*dpr; canvas.height=H*dpr;
   ctx.scale(dpr,dpr);
+  // Sync HUD_H with actual CSS height (may differ from default 52 on narrow screens)
+  const hudEl = document.getElementById('hud');
+  if (hudEl) HUD_H = hudEl.offsetHeight;
   recalcCell();
 }
 
 function recalcCell() {
   const W = window.innerWidth;
-  const isPortrait = typeof isMobile !== 'undefined' && isMobile && window.innerHeight > W;
-  const CTRL_H = isPortrait ? 170 : 0;
-  const H = window.innerHeight - HUD_H - CTRL_H;
+  const H = window.innerHeight - HUD_H;
   cS = Math.max(8, Math.floor(Math.min(W / gCols, H / gRows)));
 }
 
@@ -146,16 +292,10 @@ function startGame() {
   canvas.style.display='block'; // restore after 3D death may have hidden it
 
   gCols=20; gRows=20; recalcCell(); resizeGame();
-  if (window._touchFpsReset) window._touchFpsReset();
   score=0; level=1; xp=0; xpNeeded=5; gameTime=0;
   gamePaused=false; gameActive=true; deathTime=0;
 
-  // Mobile: show touch controls, lock landscape, mark body
-  if (typeof showTouchControls === 'function') showTouchControls(true);
-  if (typeof lockLandscape === 'function') lockLandscape();
   document.body.classList.add('game-active');
-  // Update rotate prompt visibility
-  if (window._updateRotatePrompt) window._updateRotatePrompt();
 
   const mx=Math.floor(gCols/2), my=Math.floor(gRows/2);
   player={
@@ -171,7 +311,7 @@ function startGame() {
     timeSlowCD: 0, timeSlowActive: false, timeSlowEnd: 0, timeSlowStart: 0, timeSlowSpeedMult: 1,
     missileCD: 0, missiles: [],
   };
-  enemies=[]; bullets=[]; walls=[]; speedItems=[]; xpBalls=[]; laserVis=null; foodParticles=[];
+  enemies=[]; bullets=[]; walls=[]; speedItems=[]; xpBalls=[]; laserVis=null; ParticleSystem.clear();
   unlocked=new Set(); selectedEvo=null; enemyAccum=0; enemyTickT=0;
   combo=0; comboMult=1; lastFoodTS=0; maxCombo=0;
   threatLevel=0; lastThreatTS=0; threatNotif=null; lastWallMaintainTS=0;
@@ -252,6 +392,7 @@ function _expandOverlayTransition(btn, startFn, opts) {
 }
 
 function launchGame() {
+  if (gameMode === '3d' && DISABLE_3D) return;
   const startFn = gameMode==='3d' ? startGame3D : startGame;
   const isSpring = getTheme().id === 'spring';
   const btn = document.getElementById(isSpring ? 'spLaunchBtn' : 'launchBtn');
@@ -262,6 +403,7 @@ function launchGame() {
 
 // ═══ REDEPLOY TRANSITION ═══
 function launchRedeploy(btn) {
+  if (gameMode === '3d' && DISABLE_3D) return;
   const startFn = gameMode==='3d' ? startGame3D : startGame;
   _expandOverlayTransition(btn, startFn, {
     expandDur: 0.6, colorShiftDelay: 300, startDelay: 650,
@@ -474,8 +616,6 @@ function loop(ts) {
   animId=requestAnimationFrame(loop);
   const dt=Math.min(ts-lastFrame, 80);
   lastFrame=ts;
-  // Mobile FPS monitoring for adaptive performance
-  if(window._touchFpsCheck) window._touchFpsCheck(ts);
 
   // ── Time Stop Handling ──
   if(gameFrozen) {
@@ -493,6 +633,11 @@ function loop(ts) {
     endTimeSlow();  // timeSlowActive 在冻结回调中才关闭，冻结期间保持蓝色叠加层
     render();
     return;
+  }
+
+  // Auto time-slow on mobile when CD is ready
+  if (typeof isMobile !== 'undefined' && isMobile && !gamePaused && player.alive && player.timeSlowCD <= 0 && !player.timeSlowActive) {
+    tryActivateTimeSlow();
   }
 
   if(!gamePaused && player.alive) {
@@ -541,6 +686,9 @@ function loop(ts) {
 
     // Update missiles
     if(player.missiles.length > 0) updateMissiles(dt);
+
+    // Update particles
+    ParticleSystem.update();
 
     updateHUD();
   }
@@ -1198,9 +1346,13 @@ function updateMissiles(dt) {
         Audio.sfxMissileFire();
       }
     } else if(m.state === 'flying') {
-      // 尾焰轨迹记录
-      m.trail.push({x: m.x, y: m.y});
-      if(m.trail.length > 8) m.trail.shift();
+      // 尾焰轨迹记录 - 使用 ParticleSystem
+      const T = getTheme().colors;
+      const missileColor = T.missile || '#00ffff';
+      // 外层光晕粒子
+      ParticleSystem.createTrail(m.x, m.y, 0.6, 0.08, missileColor, 7, 0.15);
+      // 内层亮点粒子
+      ParticleSystem.createTrail(m.x, m.y, 0.6, 0.08, missileColor, 2.5, 0.6);
 
       // 修正无效目标：尝试重新分配
       if(m.targetIdx < 0 || !enemies[m.targetIdx] || enemies[m.targetIdx].body.length === 0) {
@@ -1227,12 +1379,10 @@ function updateMissiles(dt) {
         m.x += m.vx * dt;
         m.y += m.vy * dt;
 
-        // Grid-based collision (account for grid offset + portrait touch controls)
+        // Grid-based collision
         const _W = window.innerWidth, _H = window.innerHeight;
-        const _isPortrait = typeof isMobile !== 'undefined' && isMobile && _H > _W;
-        const _ctrlH = _isPortrait ? 170 : 0;
         const _ox = Math.floor((_W - gCols * cS) / 2);
-        const _oy = HUD_H + Math.floor((_H - HUD_H - _ctrlH - gRows * cS) / 2);
+        const _oy = HUD_H + Math.floor((_H - HUD_H - gRows * cS) / 2);
         const gx = Math.floor((m.x - _ox) / cS);
         const gy = Math.floor((m.y - _oy) / cS);
 
@@ -1278,10 +1428,8 @@ function updateMissiles(dt) {
         m.y += m.vy * dt;
         // 飞出边界才销毁
         const _W2 = window.innerWidth, _H2 = window.innerHeight;
-        const _isPortrait2 = typeof isMobile !== 'undefined' && isMobile && _H2 > _W2;
-        const _ctrlH2 = _isPortrait2 ? 170 : 0;
         const _ox2 = Math.floor((_W2 - gCols * cS) / 2);
-        const _oy2 = HUD_H + Math.floor((_H2 - HUD_H - _ctrlH2 - gRows * cS) / 2);
+        const _oy2 = HUD_H + Math.floor((_H2 - HUD_H - gRows * cS) / 2);
         const gx2 = Math.floor((m.x - _ox2) / cS);
         const gy2 = Math.floor((m.y - _oy2) / cS);
         if(gx2 < 0 || gx2 >= gCols || gy2 < 0 || gy2 >= gRows) {
@@ -1303,23 +1451,18 @@ function createExplosion(px, py) {
   for(let i = 0; i < 16; i++) {
     const angle = (Math.PI * 2 / 16) * i + (Math.random()-0.5)*0.3;
     const spd = 2 + Math.random() * 3;
-    foodParticles.push({
-      x: px, y: py,
-      vx: Math.cos(angle) * spd,
-      vy: Math.sin(angle) * spd,
-      life: 1.0,
-      decay: 0.04 + Math.random() * 0.03,
-      color: mColor,
-      size: 1.5 + Math.random() * 2
-    });
+    ParticleSystem.createBurst(
+      px, py,
+      Math.cos(angle) * spd,
+      Math.sin(angle) * spd,
+      1.0,
+      0.04 + Math.random() * 0.03,
+      mColor,
+      1.5 + Math.random() * 2
+    );
   }
   // Flash ring (expanding white ring)
-  foodParticles.push({
-    x: px, y: py, vx: 0, vy: 0,
-    life: 1.0, decay: 0.07,
-    color: '#FFFFFF',
-    isFlash: true, flashRadius: 5
-  });
+  ParticleSystem.createFlashRing(px, py, 5, 1.0, 0.07, '#FFFFFF');
 }
 
 function createLaserHitEffect(px, py, killed) {
@@ -1329,22 +1472,23 @@ function createLaserHitEffect(px, py, killed) {
   for (let i = 0; i < count; i++) {
     const angle = (Math.PI * 2 / count) * i + (Math.random() - 0.5) * 0.4;
     const spd = 1.5 + Math.random() * 2.5;
-    foodParticles.push({
-      x: px, y: py,
-      vx: Math.cos(angle) * spd,
-      vy: Math.sin(angle) * spd,
-      life: 1.0,
-      decay: 0.05 + Math.random() * 0.03,
-      color: cols[i % 3],
-      size: 1 + Math.random() * 1.5
-    });
+    ParticleSystem.createBurst(
+      px, py,
+      Math.cos(angle) * spd,
+      Math.sin(angle) * spd,
+      1.0,
+      0.05 + Math.random() * 0.03,
+      cols[i % 3],
+      1 + Math.random() * 1.5
+    );
   }
-  foodParticles.push({
-    x: px, y: py, vx: 0, vy: 0,
-    life: 1.0, decay: killed ? 0.07 : 0.1,
-    color: T.laserCore,
-    isFlash: true, flashRadius: killed ? 5 : 3
-  });
+  ParticleSystem.createFlashRing(
+    px, py,
+    killed ? 5 : 3,
+    1.0,
+    killed ? 0.07 : 0.1,
+    T.laserCore
+  );
 }
 
 // ── Time Stop System ──
@@ -1395,6 +1539,39 @@ function activateSkill(type) {
   }
 }
 
+// ═══ TOUCH CONTROLS ═══
+let _tsX = 0, _tsY = 0, _tsActive = false, _tsSwiped = false, _mtCount = 0, _mtTS = 0;
+const _SWIPE_THRESH = 30;
+
+function onTouchStart(e) {
+  if (!gameActive || gamePaused || gameFrozen || gameMode !== '2d') return;
+  e.preventDefault();
+  const n = e.touches.length;
+  if (n === 1) { _tsX = e.touches[0].clientX; _tsY = e.touches[0].clientY; _tsActive = true; _tsSwiped = false; }
+  if (n >= 2) { _mtTS = performance.now(); _mtCount = n; }
+}
+
+function onTouchMove(e) {
+  if (!_tsActive || !gameActive || gamePaused || gameMode !== '2d') return;
+  e.preventDefault();
+  const dx = e.touches[0].clientX - _tsX, dy = e.touches[0].clientY - _tsY;
+  const adx = Math.abs(dx), ady = Math.abs(dy);
+  if (adx > _SWIPE_THRESH || ady > _SWIPE_THRESH) {
+    applyDirection(adx > ady ? (dx > 0 ? {x:1,y:0} : {x:-1,y:0}) : (dy > 0 ? {x:0,y:1} : {x:0,y:-1}));
+    _tsX = e.touches[0].clientX; _tsY = e.touches[0].clientY; _tsSwiped = true;
+  }
+}
+
+function onTouchEnd(e) {
+  if (!gameActive || gameMode !== '2d') return;
+  e.preventDefault();
+  if (!_tsSwiped && _mtCount >= 2 && performance.now() - _mtTS < 200) {
+    if (_mtCount >= 3) activateSkill('missile');
+    else activateSkill('laser');
+  }
+  _tsActive = false; _mtCount = 0;
+}
+
 function onKey(e) {
   // F3: toggle evo tree debug editor (always active)
   if (e.key === 'F3') {
@@ -1416,7 +1593,7 @@ function onKey(e) {
       e.preventDefault();
       const btn=document.getElementById('redeployBtn');
       if(btn) launchRedeploy(btn);
-      else { Audio.init(); Audio.resume(); if(gameMode==='3d')startGame3D();else startGame(); }
+      else { Audio.init(); Audio.resume(); if(gameMode==='3d'&&!DISABLE_3D)startGame3D();else if(gameMode==='2d')startGame(); }
       return;
     }
   }
@@ -1491,10 +1668,23 @@ function render() {
   // Body background
   ctx.fillStyle=T.boardBody; ctx.fillRect(0,0,W,H);
 
-  const _isP = typeof isMobile !== 'undefined' && isMobile && H > W;
-  const _cH = _isP ? 170 : 0;
+  // ── Mobile camera: follow snake, zoom to keep visible area ~10x8 cells ──
+  let _inCam = false;
+  if (typeof isMobile !== 'undefined' && isMobile && player && player.alive) {
+    const head = player.body[0];
+    const [hpx, hpy] = gridToPixel(head.x, head.y, cS);
+    const viewW = 10 * cS, viewH = 8 * cS;
+    const camZoom = Math.min(3, Math.max(0.5, Math.min((W - 16) / viewW, (H - HUD_H - 16) / viewH)));
+    const camX = W / 2 - hpx * camZoom;
+    const camY = HUD_H + (H - HUD_H) / 2 - hpy * camZoom;
+    ctx.save();
+    ctx.translate(camX, camY);
+    ctx.scale(camZoom, camZoom);
+    _inCam = true;
+  }
+
   const ox=Math.floor((W-gCols*cS)/2);
-  const oy=HUD_H+Math.floor((H-HUD_H-_cH-gRows*cS)/2);
+  const oy=HUD_H+Math.floor((H-HUD_H-gRows*cS)/2);
 
   // ── Board background ──
   // Outer shadow/margin
@@ -1580,27 +1770,8 @@ function render() {
     (FOOD_RENDERERS[getTheme().foodStyle]||FOOD_RENDERERS.diamond)(ctx,px,py,cS,T);
   }
 
-  // ── Food eat particles + explosion effects ──
-  for(let i=foodParticles.length-1;i>=0;i--){
-    const p=foodParticles[i];
-    p.life-=p.decay;
-    if(p.life<=0){foodParticles.splice(i,1);continue;}
-    if(p.isFlash){
-      // Expanding flash ring
-      const ringR = p.flashRadius + (1-p.life) * 25;
-      ctx.globalAlpha = p.life * 0.8;
-      ctx.strokeStyle = p.color;
-      ctx.lineWidth = 2;
-      ctx.beginPath();ctx.arc(p.x,p.y,ringR,0,Math.PI*2);ctx.stroke();
-    } else {
-      p.x+=p.vx; p.y+=p.vy;
-      p.vy+=0.05;
-      ctx.globalAlpha=p.life;
-      ctx.fillStyle=p.color;
-      ctx.beginPath();ctx.arc(p.x,p.y,p.size||2,0,Math.PI*2);ctx.fill();
-    }
-  }
-  ctx.globalAlpha=1.0;
+  // ── Particles ──
+  ParticleSystem.render(ctx);
 
   // ── Speed items ──
   speedItems.forEach(it=>{
@@ -1744,9 +1915,6 @@ function render() {
   // ── Time Slow Ripple Effect ──
   renderTimeSlowRipple(ctx, performance.now(), ox, oy);
 
-  // ── Edge Glow Cooldown UI ──
-  renderEdgeGlow(ctx);
-
   // ── Laser cooldown removed - replaced by edge glow UI
 
   // ── Enemy countdown ──
@@ -1797,10 +1965,16 @@ function render() {
     }
   }
 
+  // Restore camera transform
+  if (_inCam) ctx.restore();
+
   // Restore shake transform if it was applied
   if(deathShakeX !== 0 || deathShakeY !== 0){
     ctx.restore();
   }
+
+  // ── Edge Glow Cooldown UI ──
+  renderEdgeGlow(ctx);
 
   // ── Death transition overlay ──
   if(deathTime){
@@ -1881,24 +2055,6 @@ function renderMissiles(ctx) {
       ctx.translate(m.x, m.y);
       ctx.scale(scale, scale);
     } else {
-      // 双层拖影（外层光晕 + 内层亮点）
-      if(m.trail.length > 1) {
-        m.trail.forEach((p, idx) => {
-          const t = (idx+1) / m.trail.length;
-          // 外层光晕
-          ctx.globalAlpha = t * 0.15;
-          ctx.fillStyle = missileColor;
-          ctx.beginPath();
-          ctx.arc(p.x, p.y, 7*t, 0, Math.PI*2);
-          ctx.fill();
-          // 内层亮点
-          ctx.globalAlpha = t * 0.6;
-          ctx.beginPath();
-          ctx.arc(p.x, p.y, 2.5*t, 0, Math.PI*2);
-          ctx.fill();
-        });
-        ctx.globalAlpha = 1;
-      }
       // 接近目标加速线
       if(m.distToTarget && m.distToTarget < 120) {
         const ang = Math.atan2(m.vy, m.vx);

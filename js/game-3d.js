@@ -633,9 +633,11 @@ const mod = {
     mod.drawParticles(c,ts);
     mod.drawFloor(c,ts);
 
-    // Sort and draw faces
-    const order=[0,1,2,3,4,5].sort((a,b)=>mod.faceZ(a)-mod.faceZ(b));
-    for(const fi of order) mod.drawFace(c,fi,ts);
+    // Draw ghost faces (back-faces only) + cell-sorted front faces
+    for(let fi=0;fi<6;fi++) mod.drawFace(c,fi,ts);
+    const cells=mod.collectCells();
+    cells.sort((a,b)=>b.depth-a.depth||a.face-b.face||a.row-b.row||a.col-b.col);
+    mod.renderCells(c,cells,ts);
 
     // ── HUD rings (overlaid on everything) ──
     mod.drawRings(c,ts);
@@ -677,163 +679,146 @@ const mod = {
     c.strokeStyle=border;c.lineWidth=1.4;c.stroke();
   },
 
-  drawFace(c,fi,ts){
-    const f=FACES[fi], front=mod.frontFace(fi);
-    const isCur=snake.length>0&&snake[0].face===fi;
-    const cn=[mod.cornerPos(fi,0,0),mod.cornerPos(fi,N,0),mod.cornerPos(fi,N,N),mod.cornerPos(fi,0,N)];
-    const c2=cn.map(p=>mod.proj(mod.xform(p)));
-    if(c2.some(v=>!v))return;
-
-    c.save();
-    if(!front) c.globalAlpha=0.12;
-
-    // Face fill — cream for front, muted for back
-    c.beginPath();c.moveTo(c2[0][0],c2[0][1]);for(let i=1;i<4;i++)c.lineTo(c2[i][0],c2[i][1]);c.closePath();
-    c.fillStyle=front?'#DEDAD0':'#3A3830';c.fill();
-
-    // Grid lines — stone color like 2D
-    c.strokeStyle=front?(isCur?'#B8B2A8':'#C8C2B8'):'#555048';c.lineWidth=front?0.6:0.4;
-    for(let col=0;col<=N;col++){const p1=mod.proj(mod.xform(mod.cornerPos(fi,col,0))),p2=mod.proj(mod.xform(mod.cornerPos(fi,col,N)));if(p1&&p2){c.beginPath();c.moveTo(p1[0],p1[1]);c.lineTo(p2[0],p2[1]);c.stroke();}}
-    for(let row=0;row<=N;row++){const p1=mod.proj(mod.xform(mod.cornerPos(fi,0,row))),p2=mod.proj(mod.xform(mod.cornerPos(fi,N,row)));if(p1&&p2){c.beginPath();c.moveTo(p1[0],p1[1]);c.lineTo(p2[0],p2[1]);c.stroke();}}
-
-    // Border — dark outer + orange inner for current face
-    c.strokeStyle=front?'#1A1A18':'#444038';c.lineWidth=front?2.5:1;
-    c.beginPath();c.moveTo(c2[0][0],c2[0][1]);for(let i=1;i<4;i++)c.lineTo(c2[i][0],c2[i][1]);c.closePath();c.stroke();
-    if(isCur&&front){
-      // Orange inner border like 2D
-      const shrink=3;
-      const ic=[];for(let i=0;i<4;i++){const cx2=(c2[0][0]+c2[1][0]+c2[2][0]+c2[3][0])/4,cy2=(c2[0][1]+c2[1][1]+c2[2][1]+c2[3][1])/4;const dx=c2[i][0]-cx2,dy=c2[i][1]-cy2;const len=Math.sqrt(dx*dx+dy*dy);ic.push([c2[i][0]-dx/len*shrink,c2[i][1]-dy/len*shrink]);}
-      c.strokeStyle='#E8640A';c.lineWidth=1;
-      c.beginPath();c.moveTo(ic[0][0],ic[0][1]);for(let i=1;i<4;i++)c.lineTo(ic[i][0],ic[i][1]);c.closePath();c.stroke();
-
-      // Corner marks — orange dots
-      c2.forEach(([px,py])=>{c.fillStyle='#E8640A';c.fillRect(px-2,py-2,4,4);});
+  // ── Collect all front-facing cells + project to screen space ──
+  collectCells(){
+    const cells=[];
+    for(let fi=0;fi<6;fi++){
+      if(!mod.frontFace(fi)) continue;
+      const pA=mod.proj(mod.xform(mod.cellPos(fi,0,0)));
+      const pB=mod.proj(mod.xform(mod.cellPos(fi,1,0)));
+      const cS=(pA&&pB)?Math.sqrt((pB[0]-pA[0])**2+(pB[1]-pA[1])**2):20;
+      for(let col=0;col<N;col++){
+        for(let row=0;row<N;row++){
+          const p3=mod.cellPos(fi,col,row);
+          const cam=mod.xform(p3);
+          const prj=mod.proj(cam);
+          if(!prj) continue;
+          cells.push({
+            face:fi, col, row,
+            sx:prj[0], sy:prj[1], depth:cam[2],
+            hexR:cS*0.42,
+            cS3D:cS,
+            isCur:snake.length>0&&snake[0].face===fi,
+          });
+        }
+      }
     }
+    return cells;
+  },
 
-    // Face number — subtle (use projected cell size for scaling)
-    const cp=mod.proj(mod.xform(mod.cellPos(fi,N/2-.5,N/2-.5)));
-    // Compute a rough cell size even for back faces
-    const pRef1=mod.proj(mod.xform(mod.cellPos(fi,0,0)));
-    const pRef2=mod.proj(mod.xform(mod.cellPos(fi,1,0)));
-    const csRef=(pRef1&&pRef2)?Math.sqrt((pRef2[0]-pRef1[0])**2+(pRef2[1]-pRef1[1])**2):16;
-    if(cp){
-      const fs2=Math.max(14,csRef*2.5);
-      c.font=`900 ${fs2}px "Barlow Condensed",sans-serif`;c.textAlign='center';c.textBaseline='middle';
-      c.fillStyle=front?(isCur?'rgba(232,100,10,0.25)':'rgba(150,140,130,0.25)'):'rgba(100,96,88,0.4)';
-      c.fillText(fi,cp[0],cp[1]);
-      c.font=`${Math.max(8,csRef*0.8)}px "Share Tech Mono",monospace`;
-      c.fillStyle=front?(isCur?'rgba(232,100,10,0.2)':'rgba(150,140,130,0.2)'):'rgba(100,96,88,0.3)';
-      c.fillText(f.name,cp[0],cp[1]+fs2*.7);
-      c.textAlign='left';c.textBaseline='alphabetic';
+  // ── Draw cell background fill ──
+  drawCellBg(c,cell){
+    const sz=cell.cS3D*0.52;
+    c.fillStyle='#DEDAD0';
+    c.fillRect(cell.sx-sz,cell.sy-sz,sz*2,sz*2);
+  },
+
+  // ── Draw cell grid lines + face borders on edge cells ──
+  drawCellGrid(c,cell){
+    const cs=cell.cS3D;
+    const s=cs/2;
+    const isEdge=cell.col===0||cell.col===M||cell.row===0||cell.row===M;
+    const frontClr=cell.isCur?'#B8B2A8':'#C8C2B8';
+    c.strokeStyle=frontClr;c.lineWidth=0.6;
+    c.beginPath();c.moveTo(cell.sx+s,cell.sy-s);c.lineTo(cell.sx+s,cell.sy+s);c.stroke();
+    c.beginPath();c.moveTo(cell.sx-s,cell.sy+s);c.lineTo(cell.sx+s,cell.sy+s);c.stroke();
+    if(isEdge){
+      c.strokeStyle='#1A1A18';c.lineWidth=2;
+      if(cell.col===0){c.beginPath();c.moveTo(cell.sx-s,cell.sy-s);c.lineTo(cell.sx-s,cell.sy+s);c.stroke();}
+      if(cell.col===M){c.beginPath();c.moveTo(cell.sx+s,cell.sy-s);c.lineTo(cell.sx+s,cell.sy+s);c.stroke();}
+      if(cell.row===0){c.beginPath();c.moveTo(cell.sx-s,cell.sy-s);c.lineTo(cell.sx+s,cell.sy-s);c.stroke();}
+      if(cell.row===M){c.beginPath();c.moveTo(cell.sx-s,cell.sy+s);c.lineTo(cell.sx+s,cell.sy+s);c.stroke();}
     }
+  },
 
-    if(!front){c.restore();return;}
+  // ── Draw a cell's contents: walls, food, XP, snake, shockwave, combo ──
+  drawCellContents(c,cell,ts){
+    const fi=cell.face, col=cell.col, row=cell.row;
+    const cs=cell.cS3D;
+    const t3=tickT3D;
 
-    // ── Compute projected cell size (3D equivalent of cS) ──
-    const pA=mod.proj(mod.xform(mod.cellPos(fi,0,0)));
-    const pB=mod.proj(mod.xform(mod.cellPos(fi,1,0)));
-    const cS3D=(pA&&pB)?Math.sqrt((pB[0]-pA[0])**2+(pB[1]-pA[1])**2):20;
-
-    // ── Walls — dark cells with orange X marks like 2D ──
+    // Walls
     for(const w of walls3D){
       const alpha=w.life<5000?(w.life/5000):1;
       for(const wc of w.cells){
-        if(wc.face!==fi) continue;
-        const wp=mod.proj(mod.xform(mod.cellPos(fi,wc.col,wc.row)));
-        if(!wp)continue;
-        const sz=cS3D*0.46;
+        if(wc.face!==fi||wc.col!==col||wc.row!==row) continue;
+        const sz=cs*0.46;
         c.save();c.globalAlpha=alpha;
         c.fillStyle='rgba(20,18,16,0.92)';
-        c.fillRect(wp[0]-sz,wp[1]-sz,sz*2,sz*2);
+        c.fillRect(cell.sx-sz,cell.sy-sz,sz*2,sz*2);
         c.strokeStyle='rgba(232,100,10,0.7)';c.lineWidth=1;
-        c.strokeRect(wp[0]-sz,wp[1]-sz,sz*2,sz*2);
+        c.strokeRect(cell.sx-sz,cell.sy-sz,sz*2,sz*2);
         c.strokeStyle='rgba(232,100,10,0.35)';c.lineWidth=0.8;
         c.beginPath();
-        c.moveTo(wp[0]-sz*0.6,wp[1]-sz*0.6);c.lineTo(wp[0]+sz*0.6,wp[1]+sz*0.6);
-        c.moveTo(wp[0]+sz*0.6,wp[1]-sz*0.6);c.lineTo(wp[0]-sz*0.6,wp[1]+sz*0.6);
+        c.moveTo(cell.sx-sz*0.6,cell.sy-sz*0.6);c.lineTo(cell.sx+sz*0.6,cell.sy+sz*0.6);
+        c.moveTo(cell.sx+sz*0.6,cell.sy-sz*0.6);c.lineTo(cell.sx-sz*0.6,cell.sy+sz*0.6);
         c.stroke();
         c.restore();
       }
     }
 
-    // ── Food — diamond shape like 2D ──
-    if(food&&food.face===fi){
-      const fp=mod.proj(mod.xform(mod.cellPos(fi,food.col,food.row)));
-      if(fp){
-        const t2=(ts%900)/900, pulse=0.88+0.12*Math.sin(t2*Math.PI*2);
-        const r=cS3D*0.30*pulse;
-        c.fillStyle='rgba(232,100,10,0.08)';
-        c.beginPath();c.arc(fp[0],fp[1],r*2.5,0,Math.PI*2);c.fill();
-        c.save();c.translate(fp[0],fp[1]);c.rotate(Math.PI/4);
-        c.fillStyle='#E8640A';c.fillRect(-r*.7,-r*.7,r*1.4,r*1.4);
-        c.strokeStyle='#111110';c.lineWidth=1.5;c.strokeRect(-r*.7,-r*.7,r*1.4,r*1.4);
-        c.restore();
-        c.fillStyle='#F5F0E8';c.beginPath();c.arc(fp[0],fp[1],r*0.22,0,Math.PI*2);c.fill();
-      }
+    // Food
+    if(food&&food.face===fi&&food.col===col&&food.row===row){
+      const t2=(ts%900)/900, pulse=0.88+0.12*Math.sin(t2*Math.PI*2);
+      const r=cs*0.30*pulse;
+      c.fillStyle='rgba(232,100,10,0.08)';
+      c.beginPath();c.arc(cell.sx,cell.sy,r*2.5,0,Math.PI*2);c.fill();
+      c.save();c.translate(cell.sx,cell.sy);c.rotate(Math.PI/4);
+      c.fillStyle='#E8640A';c.fillRect(-r*.7,-r*.7,r*1.4,r*1.4);
+      c.strokeStyle='#111110';c.lineWidth=1.5;c.strokeRect(-r*.7,-r*.7,r*1.4,r*1.4);
+      c.restore();
+      c.fillStyle='#F5F0E8';c.beginPath();c.arc(cell.sx,cell.sy,r*0.22,0,Math.PI*2);c.fill();
     }
 
-    // ── XP balls — teal circles like 2D ──
+    // XP balls
     for(const b of xpBalls3D){
-      if(b.face!==fi) continue;
-      const bp=mod.proj(mod.xform(mod.cellPos(fi,b.col,b.row)));
-      if(!bp) continue;
-      const r=cS3D*0.21;
-      c.fillStyle='rgba(20,18,16,0.8)';c.beginPath();c.arc(bp[0],bp[1],r*1.3,0,Math.PI*2);c.fill();
-      c.strokeStyle='#00A896';c.lineWidth=1.5;c.beginPath();c.arc(bp[0],bp[1],r,0,Math.PI*2);c.stroke();
-      c.fillStyle='#00A896';c.beginPath();c.arc(bp[0],bp[1],r*0.45,0,Math.PI*2);c.fill();
+      if(b.face!==fi||b.col!==col||b.row!==row) continue;
+      const r=cs*0.21;
+      c.fillStyle='rgba(20,18,16,0.8)';c.beginPath();c.arc(cell.sx,cell.sy,r*1.3,0,Math.PI*2);c.fill();
+      c.strokeStyle='#00A896';c.lineWidth=1.5;c.beginPath();c.arc(cell.sx,cell.sy,r,0,Math.PI*2);c.stroke();
+      c.fillStyle='#00A896';c.beginPath();c.arc(cell.sx,cell.sy,r*0.45,0,Math.PI*2);c.fill();
     }
 
-    // ── Shockwave visual ──
+    // Shockwave
     if(swWave.length>0){
       const elapsed=ts-swVisStart;
       if(elapsed<600){
         for(const sw of swWave){
-          if(sw.face!==fi)continue;
+          if(sw.face!==fi||sw.col!==col||sw.row!==row) continue;
           const delay=sw.ring*80;
           const t2=(elapsed-delay)/400;
-          if(t2<0||t2>1)continue;
+          if(t2<0||t2>1) continue;
           const alpha=(1-t2)*0.6;
-          const swp=mod.proj(mod.xform(mod.cellPos(fi,sw.col,sw.row)));
-          if(!swp)continue;
-          const sz=cS3D*0.45*(0.5+t2*0.5);
+          const sz=cs*0.45*(0.5+t2*0.5);
           c.save();c.globalAlpha=alpha;
           c.strokeStyle='#E8640A';c.lineWidth=2;
-          c.strokeRect(swp[0]-sz,swp[1]-sz,sz*2,sz*2);
+          c.strokeRect(cell.sx-sz,cell.sy-sz,sz*2,sz*2);
           c.fillStyle='rgba(232,100,10,0.15)';
-          c.fillRect(swp[0]-sz,swp[1]-sz,sz*2,sz*2);
+          c.fillRect(cell.sx-sz,cell.sy-sz,sz*2,sz*2);
           c.restore();
         }
-      } else {
-        swWave=[];
       }
     }
 
-    // ── Snake — hex cells with interpolation ──
-    const t3=tickT3D;
-    for(let i=snake.length-1;i>=0;i--){
+    // Snake
+    const segIdx=snake.findIndex(s=>s.face===fi&&s.col===col&&s.row===row);
+    if(segIdx>=0){
+      const i=segIdx;
       const seg=snake[i];
       const prv=snakePrev[i]||seg;
-      // Only interpolate if same face (cross-face = snap)
       const sameFace=(seg.face===prv.face);
-      const drawFi=seg.face;
-      if(drawFi!==fi) continue;
 
-      let sx,sy;
+      let sx=cell.sx, sy=cell.sy;
       if(sameFace){
         const p1=mod.cellPos(fi,prv.col,prv.row);
         const p2=mod.cellPos(fi,seg.col,seg.row);
         const interp=[p1[0]+(p2[0]-p1[0])*t3, p1[1]+(p2[1]-p1[1])*t3, p1[2]+(p2[2]-p1[2])*t3];
         const sp=mod.proj(mod.xform(interp));
-        if(!sp)continue;
-        sx=sp[0];sy=sp[1];
-      } else {
-        const sp=mod.proj(mod.xform(mod.cellPos(fi,seg.col,seg.row)));
-        if(!sp)continue;
-        sx=sp[0];sy=sp[1];
+        if(sp){sx=sp[0];sy=sp[1];}
       }
 
       const isH=i===0;
-      const hexR=cS3D*0.42;
+      const hexR=cell.hexR;
       const fade=Math.max(0.35,1-i/snake.length*0.55);
 
       if(fade<1){c.save();c.globalAlpha=fade*0.85+0.15;}
@@ -842,19 +827,13 @@ const mod = {
         mod.drawHex3D(c,sx,sy,hexR,'#E8640A','#F5920A');
         const eyeR=hexR*0.18,eyeOff=hexR*0.4,eyeFwd=hexR*0.35;
         let dx=0,dy=-1;
-        if(snake.length>1&&snake[1].face===fi){
-          const prv2=snakePrev[1]||snake[1];
-          const sameFace2=(snake[1].face===prv2.face);
+        if(snake.length>1){
+          const s2=snake[1];
+          const prv2=snakePrev[1]||s2;
           let s2x,s2y;
-          if(sameFace2){
-            const pa=mod.cellPos(fi,prv2.col,prv2.row);
-            const pb=mod.cellPos(fi,snake[1].col,snake[1].row);
-            const ip=[pa[0]+(pb[0]-pa[0])*t3,pa[1]+(pb[1]-pa[1])*t3,pa[2]+(pb[2]-pa[2])*t3];
-            const sp2=mod.proj(mod.xform(ip));
-            if(sp2){s2x=sp2[0];s2y=sp2[1];}
-          } else {
-            const sp2=mod.proj(mod.xform(mod.cellPos(fi,snake[1].col,snake[1].row)));
-            if(sp2){s2x=sp2[0];s2y=sp2[1];}
+          if(s2.face===fi){
+            const s2p=mod.proj(mod.xform(mod.cellPos(fi,s2.col,s2.row)));
+            if(s2p){s2x=s2p[0];s2y=s2p[1];}
           }
           if(s2x!==undefined){dx=sx-s2x;dy=sy-s2y;const dl=Math.sqrt(dx*dx+dy*dy)||1;dx/=dl;dy/=dl;}
         }
@@ -873,24 +852,117 @@ const mod = {
     }
 
     // Combo flash
-    if(combo>=2&&performance.now()-lastFoodTS<500){
+    if(combo>=2&&performance.now()-lastFoodTS<500&&segIdx===0){
       const frac=(performance.now()-lastFoodTS)/500;
-      const head=snake[0];
-      if(head&&head.face===fi){
-        const hp=mod.proj(mod.xform(mod.cellPos(fi,head.col,head.row)));
-        if(hp){
-          c.save();c.globalAlpha=(1-frac)*0.9;
-          const fsz=Math.max(12,cS3D*0.55);
-          c.font=`bold ${fsz}px "Barlow Condensed",sans-serif`;c.textAlign='center';c.textBaseline='middle';
-          c.fillStyle='#E8640A';c.fillText(`COMBO ×${combo}`,hp[0],hp[1]-cS3D*1.2);
-          c.textAlign='left';c.textBaseline='alphabetic';c.restore();
-        }
+      c.save();c.globalAlpha=(1-frac)*0.9;
+      const fsz=Math.max(12,cs*0.55);
+      c.font=`bold ${fsz}px "Barlow Condensed",sans-serif`;c.textAlign='center';c.textBaseline='middle';
+      c.fillStyle='#E8640A';c.fillText(`COMBO ×${combo}`,cell.sx,cell.sy-cs*1.2);
+      c.textAlign='left';c.textBaseline='alphabetic';c.restore();
+    }
+  },
+
+  // ── Main cell-based render: sort by depth, draw back to front ──
+  renderCells(c,cells,ts){
+    // Draw full face fill quads first to prevent gaps between cells
+    const facesDone=new Set();
+    for(const cell of cells){
+      const fk=cell.face;
+      if(facesDone.has(fk)) continue;
+      facesDone.add(fk);
+      const cn=[mod.cornerPos(fk,0,0),mod.cornerPos(fk,N,0),mod.cornerPos(fk,N,N),mod.cornerPos(fk,0,N)];
+      const c2=cn.map(p=>mod.proj(mod.xform(p)));
+      if(c2.some(v=>!v)) continue;
+      c.beginPath();c.moveTo(c2[0][0],c2[0][1]);for(let i=1;i<4;i++)c.lineTo(c2[i][0],c2[i][1]);c.closePath();
+      c.fillStyle='#DEDAD0';c.fill();
+    }
+    // Cell backgrounds + grids
+    for(const cell of cells){
+      mod.drawCellBg(c,cell);
+      mod.drawCellGrid(c,cell);
+    }
+    // Cell contents
+    for(const cell of cells){
+      mod.drawCellContents(c,cell,ts);
+    }
+    // Face labels
+    const done=new Set();
+    for(const cell of cells){
+      const fk=cell.face;
+      if(done.has(fk)) continue;
+      done.add(fk);
+      const cp=mod.proj(mod.xform(mod.cellPos(fk,N/2-.5,N/2-.5)));
+      if(cp){
+        const cs=cell.cS3D;
+        const fs2=Math.max(14,cs*2.5);
+        c.save();
+        c.font=`900 ${fs2}px "Barlow Condensed",sans-serif`;c.textAlign='center';c.textBaseline='middle';
+        c.fillStyle=cell.isCur?'rgba(232,100,10,0.25)':'rgba(150,140,130,0.25)';
+        c.fillText(fk,cp[0],cp[1]);
+        c.font=`${Math.max(8,cs*0.8)}px "Share Tech Mono",monospace`;
+        c.fillStyle=cell.isCur?'rgba(232,100,10,0.2)':'rgba(150,140,130,0.2)';
+        c.fillText(FACES[fk].name,cp[0],cp[1]+fs2*.7);
+        c.textAlign='left';c.textBaseline='alphabetic';
+        c.restore();
       }
+    }
+    // Orange inner border + corner dots for current face
+    const curFace=snake.length>0?snake[0].face:0;
+    const cn=[mod.cornerPos(curFace,0,0),mod.cornerPos(curFace,N,0),mod.cornerPos(curFace,N,N),mod.cornerPos(curFace,0,N)];
+    const c2=cn.map(p=>mod.proj(mod.xform(p)));
+    if(c2.every(v=>v)){
+      const shrink=3;
+      const mx=(c2[0][0]+c2[1][0]+c2[2][0]+c2[3][0])/4, my=(c2[0][1]+c2[1][1]+c2[2][1]+c2[3][1])/4;
+      const ic=c2.map(([px,py])=>{const dx2=px-mx,dy2=py-my;const len=Math.sqrt(dx2*dx2+dy2*dy2);return[px-dx2/len*shrink,py-dy2/len*shrink];});
+      c.strokeStyle='#E8640A';c.lineWidth=1;
+      c.beginPath();c.moveTo(ic[0][0],ic[0][1]);for(let i=1;i<4;i++)c.lineTo(ic[i][0],ic[i][1]);c.closePath();c.stroke();
+      c2.forEach(([px,py])=>{c.fillStyle='#E8640A';c.fillRect(px-2,py-2,4,4);});
+    }
+  },
+
+  drawFace(c,fi,ts){
+    const f=FACES[fi], front=mod.frontFace(fi);
+    const isCur=snake.length>0&&snake[0].face===fi;
+    const cn=[mod.cornerPos(fi,0,0),mod.cornerPos(fi,N,0),mod.cornerPos(fi,N,N),mod.cornerPos(fi,0,N)];
+    const c2=cn.map(p=>mod.proj(mod.xform(p)));
+    if(c2.some(v=>!v))return;
+    if(front) return;
+
+    c.save();
+    c.globalAlpha=0.12;
+
+    // Face fill — cream for front, muted for back
+    c.beginPath();c.moveTo(c2[0][0],c2[0][1]);for(let i=1;i<4;i++)c.lineTo(c2[i][0],c2[i][1]);c.closePath();
+    c.fillStyle='#3A3830';c.fill();
+
+    // Grid lines — stone color like 2D
+    c.strokeStyle='#555048';c.lineWidth=0.4;
+    for(let col=0;col<=N;col++){const p1=mod.proj(mod.xform(mod.cornerPos(fi,col,0))),p2=mod.proj(mod.xform(mod.cornerPos(fi,col,N)));if(p1&&p2){c.beginPath();c.moveTo(p1[0],p1[1]);c.lineTo(p2[0],p2[1]);c.stroke();}}
+    for(let row=0;row<=N;row++){const p1=mod.proj(mod.xform(mod.cornerPos(fi,0,row))),p2=mod.proj(mod.xform(mod.cornerPos(fi,N,row)));if(p1&&p2){c.beginPath();c.moveTo(p1[0],p1[1]);c.lineTo(p2[0],p2[1]);c.stroke();}}
+
+    // Border — dark outer + orange inner for current face
+    c.strokeStyle='#444038';c.lineWidth=1;
+    c.beginPath();c.moveTo(c2[0][0],c2[0][1]);for(let i=1;i<4;i++)c.lineTo(c2[i][0],c2[i][1]);c.closePath();c.stroke();
+
+    // Face number — subtle (use projected cell size for scaling)
+    const cp=mod.proj(mod.xform(mod.cellPos(fi,N/2-.5,N/2-.5)));
+    // Compute a rough cell size even for back faces
+    const pRef1=mod.proj(mod.xform(mod.cellPos(fi,0,0)));
+    const pRef2=mod.proj(mod.xform(mod.cellPos(fi,1,0)));
+    const csRef=(pRef1&&pRef2)?Math.sqrt((pRef2[0]-pRef1[0])**2+(pRef2[1]-pRef1[1])**2):16;
+    if(cp){
+      const fs2=Math.max(14,csRef*2.5);
+      c.font=`900 ${fs2}px "Barlow Condensed",sans-serif`;c.textAlign='center';c.textBaseline='middle';
+      c.fillStyle='rgba(100,96,88,0.4)';
+      c.fillText(fi,cp[0],cp[1]);
+      c.font=`${Math.max(8,csRef*0.8)}px "Share Tech Mono",monospace`;
+      c.fillStyle='rgba(100,96,88,0.3)';
+      c.fillText(f.name,cp[0],cp[1]+fs2*.7);
+      c.textAlign='left';c.textBaseline='alphabetic';
     }
 
     c.restore();
   },
-
   drawMinimap(){
     if(!mmCtx)return;
     const mW=160,mH=120,cs=2,pad=2;
