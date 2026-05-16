@@ -5,7 +5,6 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>HexSnake: Dimension Fold</title>
 <link rel="stylesheet" href="style.css">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg'/>">
 </head>
 <body>
 <canvas id="gameCanvas"></canvas>
@@ -307,7 +306,7 @@
               <span class="s-card-title">进化树系统</span>
               <span class="s-card-id">SYS-02</span>
             </div>
-            <div class="s-card-desc">升级解锁10种进化路径</div>
+            <div class="s-card-desc">升级解锁17种进化路径 (3D: 8种)</div>
           </div>
           <div class="s-card r">
             <div class="s-card-lstrip"></div>
@@ -326,6 +325,15 @@
               <span class="s-card-id">SYS-04</span>
             </div>
             <div class="s-card-desc">升级扩张 · 墙体随机阻断</div>
+          </div>
+          <div class="s-card g">
+            <div class="s-card-lstrip"></div>
+            <div class="s-card-head">
+              <span class="s-card-icon">◆</span>
+              <span class="s-card-title">3D 立方体模式</span>
+              <span class="s-card-id">SYS-05</span>
+            </div>
+            <div class="s-card-desc">六面立方体 · 冲击波 · 轨道环</div>
           </div>
         </div>
 
@@ -411,11 +419,15 @@
               <td class="sp-kdesc">发射飞弹 <span style="opacity:.5;font-size:.75em">· 需升级</span></td>
             </tr>
             <tr>
-              <td><span class="sp-kb">▲ 加速</span></td>
+              <td><span class="sp-kb" style="border-bottom-color:var(--phosphor)">● XP球</span></td>
+              <td class="sp-kdesc">收集触发升级</td>
+            </tr>
+            <tr>
+              <td><span class="sp-kb" style="border-bottom-color:var(--amber)">▲ 加速</span></td>
               <td class="sp-kdesc">速度倍率叠加</td>
             </tr>
             <tr>
-              <td><span class="sp-kb">▼ 减速</span></td>
+              <td><span class="sp-kb" style="border-bottom-color:var(--vhs-c)">▼ 减速</span></td>
               <td class="sp-kdesc">速度倍率降低</td>
             </tr>
             <tr>
@@ -482,6 +494,13 @@
             <div class="sp-card-body">
               <div class="sp-card-title">动态地图</div>
               <div class="sp-card-desc">升级扩张 · 墙体阻断</div>
+            </div>
+          </div>
+          <div class="sp-card">
+            <div class="sp-card-icon">◆</div>
+            <div class="sp-card-body">
+              <div class="sp-card-title">3D 立方体</div>
+              <div class="sp-card-desc">六面战场 · 冲击波</div>
             </div>
           </div>
         </div>
@@ -669,11 +688,86 @@
             </div>
           </div>
         </div>
+        <!-- PAGE 7: DIFFICULTY -->
+        <div class="manual-page" id="manPage6">
+          <div class="manual-sec-title" data-mn="t_diff">§ SECTION 07 — DIFFICULTY</div>
+          <div class="manual-text" data-mn="c_diff">
+            <p>Five difficulty tiers — choose at the Settings panel (⚙). Setting persists via localStorage.</p>
+            <table class="mn-diff-table"><tr><th></th><th>EASY</th><th>NORMAL</th><th>HARD</th><th>HELL</th></tr><tr><td>Initial enemies</td><td>0</td><td>0</td><td>1</td><td>2</td></tr><tr><td>First enemy delay</td><td>30s</td><td>20s</td><td>15s</td><td>10s</td></tr><tr><td>Spawn interval</td><td>30s</td><td>20s</td><td>12s</td><td>8s</td></tr><tr><td>Threat interval</td><td>60s</td><td>30s</td><td>20s</td><td>15s</td></tr><tr><td>Max enemies</td><td>3</td><td>5</td><td>8</td><td>12</td></tr><tr><td>Enemy bullet CD</td><td>10s</td><td>8s</td><td>6s</td><td>4s</td></tr><tr><td>Enemy tick</td><td>400ms</td><td>320ms</td><td>260ms</td><td>200ms</td></tr><tr><td>XP multiplier</td><td>×1.0</td><td>×1.0</td><td>×1.25</td><td>×1.5</td></tr><tr><td>Threat cap</td><td>Lv.5</td><td>Lv.8</td><td>Lv.10</td><td>Lv.15</td></tr></table>
+            <p><strong>NIGHTMARE</strong> — locked tier. Extreme challenge for the future.</p>
+          </div>
+          <div class="manual-fig">
+            <div class="manual-fig-label">— FIG. 07 —</div>
+            <div class="manual-fig-content fig-diff">
+              <div class="fig-diff-bars">
+                <div class="fig-diff-bar" style="height:30%"><span>EASY</span></div>
+                <div class="fig-diff-bar" style="height:50%"><span>NORM</span></div>
+                <div class="fig-diff-bar" style="height:70%"><span>HARD</span></div>
+                <div class="fig-diff-bar" style="height:90%"><span>HELL</span></div>
+                <div class="fig-diff-bar fig-diff-locked" style="height:100%"><span>???</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- PAGE 8: INTERFACE & THEMES -->
+        <div class="manual-page" id="manPage7">
+          <div class="manual-sec-title" data-mn="t_ui">§ SECTION 08 — INTERFACE &amp; THEMES</div>
+          <div class="manual-text" data-mn="c_ui">
+            <p><strong>Two Themes</strong></p>
+            <p>▸ <span class="mn-branch laser">CASSETTE FUTURISM</span> — Amber/black palette, diamond food, BGM 126 BPM.</p>
+            <p>▸ <span class="mn-branch mobility">SPRING FESTIVAL</span> — Vermillion/gold palette, firework food, BGM 108 BPM (Chinese pentatonic).</p>
+            <p><strong>Settings Panel (⚙)</strong> — Theme / Volume (BGM &amp; SFX) / Difficulty / Graphics (ring opacity, depth, size).</p>
+            <p><strong>Screen-Edge Cooldown Glow</strong> — Top (amber) = Laser. Left (ice blue) = Time Slow. Right (cyan) = Missiles. Pulses when ready.</p>
+            <p><strong>Mobile:</strong> swipe to steer, 2-finger=laser, 3-finger=missile. Auto time-slow on small screens.</p>
+            <p>Best score, difficulty &amp; ring settings auto-saved via localStorage.</p>
+          </div>
+          <div class="manual-fig">
+            <div class="manual-fig-label">— FIG. 08 —</div>
+            <div class="manual-fig-content fig-interface">
+              <div class="fig-if-edges">
+                <span class="fig-if-edge fig-if-top"></span>
+                <span class="fig-if-edge fig-if-left"></span>
+                <span class="fig-if-edge fig-if-right"></span>
+              </div>
+              <div class="fig-if-screen">
+                <span class="fig-if-label">⚙ SETTINGS</span>
+                <span class="fig-if-tab">THEME</span>
+                <span class="fig-if-tab">VOL</span>
+                <span class="fig-if-tab">DIFF</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- PAGE 9: 3D CUBE MODE -->
+        <div class="manual-page" id="manPage8">
+          <div class="manual-sec-title" data-mn="t_cube">§ SECTION 09 — 3D CUBE MODE</div>
+          <div class="manual-text" data-mn="c_cube">
+            <p><strong>Cube Structure</strong></p>
+            <p>6 faces (FRONT/RIGHT/BACK/LEFT/TOP/BOTTOM), each 12×12. Cross-face movement via adjacency. Quaternion camera with 350ms slerp transitions.</p>
+            <p><strong>Shockwave</strong> (<kbd>J</kbd>/<kbd>Space</kbd>) — BFS wave, base range 2 (upgradable 3→4). Cooldown 8s (upgradable 6s→4s). Wall Break upgrade destroys obstacles.</p>
+            <p><strong>Orbit Ring HUD</strong> — 3 rings (radius 2.15/2.5/2.85), amber/gold/beige, scanning cursors.</p>
+            <p><strong>Minimap</strong> — cross-layout of all 6 faces, current face highlighted.</p>
+            <p><strong>vs 2D</strong> — No bullets, no speed items, no K/L skills. Combo steps every 3 foods. 8 evo nodes (vs 17). TRON floor with binary dust.</p>
+          </div>
+          <div class="manual-fig">
+            <div class="manual-fig-label">— FIG. 09 —</div>
+            <div class="manual-fig-content fig-cube">
+              <div class="fig-cube-unfold">
+                <span class="fig-cube-face fig-cube-top">TOP</span>
+                <span class="fig-cube-face fig-cube-left">LEFT</span>
+                <span class="fig-cube-face fig-cube-front">FRONT</span>
+                <span class="fig-cube-face fig-cube-right">RIGHT</span>
+                <span class="fig-cube-face fig-cube-back">BACK</span>
+                <span class="fig-cube-face fig-cube-bot">BOT</span>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
     <div class="manual-nav">
       <button class="manual-nav-btn" id="manPrev" onclick="manualPrevPage()">◁ PREV</button>
-      <span class="manual-page-indicator" id="manPageInd">§1 / §6</span>
+      <span class="manual-page-indicator" id="manPageInd">§1 / §9</span>
       <button class="manual-nav-btn" id="manNext" onclick="manualNextPage()">NEXT ▷</button>
     </div>
     <div class="manual-footer">
@@ -701,6 +795,10 @@
         <div class="cfg-tab" id="cfgTabDiff" onclick="switchCfgTab('difficulty')">
           <span class="cfg-tab-code">DIFFICULTY</span>
           <span class="cfg-tab-name">难度</span>
+        </div>
+        <div class="cfg-tab" id="cfgTabGraphics" onclick="switchCfgTab('graphics')">
+          <span class="cfg-tab-code">GRAPHICS</span>
+          <span class="cfg-tab-name">图像</span>
         </div>
         <div class="cfg-mem-toggle" id="cfgMemToggle" onclick="toggleCfgMem()">
           <span class="cfg-mem-dot" id="cfgMemDot"></span>
@@ -824,6 +922,42 @@
                 <span class="cfg-diff-name">??? · NIGHTMARE</span>
                 <span class="cfg-diff-desc">??? · LOCKED</span>
                 <span class="cfg-diff-code">DIFF · NGHT · ??</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- Graphics pane -->
+        <div class="cfg-pane" id="cfgPaneGraphics" style="display:none">
+          <div class="cfg-section-title">◈ 图像调节  RING DISPLAY</div>
+          <div class="cfg-vol-rows">
+            <div class="cfg-vol-row">
+              <div class="cfg-vol-label">
+                <span class="cfg-vol-key">不透明度</span>
+                <span class="cfg-vol-sub">刻度环透明度</span>
+              </div>
+              <div class="cfg-vol-slider-wrap">
+                <input type="range" class="cfg-slider" id="cfgRingOpacitySlider" min="10" max="100" value="70" oninput="onRingOpacitySlider(this)">
+                <span class="cfg-vol-pct" id="cfgRingOpacityPct">70%</span>
+              </div>
+            </div>
+            <div class="cfg-vol-row">
+              <div class="cfg-vol-label">
+                <span class="cfg-vol-key">颜色深浅</span>
+                <span class="cfg-vol-sub">刻度环颜色亮度</span>
+              </div>
+              <div class="cfg-vol-slider-wrap">
+                <input type="range" class="cfg-slider" id="cfgRingDepthSlider" min="0" max="100" value="50" oninput="onRingDepthSlider(this)">
+                <span class="cfg-vol-pct" id="cfgRingDepthPct">50%</span>
+              </div>
+            </div>
+            <div class="cfg-vol-row">
+              <div class="cfg-vol-label">
+                <span class="cfg-vol-key">刻度盘大小</span>
+                <span class="cfg-vol-sub">环半径缩放</span>
+              </div>
+              <div class="cfg-vol-slider-wrap">
+                <input type="range" class="cfg-slider" id="cfgRingSizeSlider" min="40" max="200" value="100" oninput="onRingSizeSlider(this)">
+                <span class="cfg-vol-pct" id="cfgRingSizePct">100%</span>
               </div>
             </div>
           </div>

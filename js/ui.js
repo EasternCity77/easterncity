@@ -680,12 +680,14 @@ function onEvoClick(e) {
     if(_evoHitHex(mx,my,pos.x,pos.y,L.hexR*1.1)) {
       const st = nodeState(n);
       if(st==='available') {
-        selectedEvo = n.id;
+        selectedEvo = n.id; Audio.sfxUiHexSelect();
         document.getElementById('evoWarn').textContent='';
         drawEvoTree();
       } else if(st==='unlocked') {
+        Audio.sfxUiHexAlready();
         document.getElementById('evoWarn').textContent='/ 该节点已激活';
       } else {
+        Audio.sfxUiHexLocked();
         document.getElementById('evoWarn').textContent='/ 需要先解锁前置节点';
       }
       return;
@@ -721,6 +723,7 @@ function confirmUpgrade() {
   const upgNode = curNodes().find(n=>n.id===upgId);
   unlocked.add(upgId);
   applyUpgradeEffect(upgId);
+  Audio.sfxUiUpgradeInstall();
   selectedEvo=null;
   if (evoRaf) { cancelAnimationFrame(evoRaf); evoRaf = null; }
   document.getElementById('evoScreen').classList.remove('show');
@@ -736,11 +739,13 @@ function confirmUpgrade() {
   const tick = setInterval(() => {
     count--;
     if(count <= 0){
+      Audio.sfxUiCountdownGo();
       clearInterval(tick);
       overlay.style.display = 'none';
       gamePaused = false;
       if (getTheme().id === 'spring') Audio.startBgmSpring(); else Audio.startBGM();
     } else {
+      Audio.sfxUiCountdownTick();
       numEl.textContent = count;
     }
   }, 1000);
@@ -784,6 +789,7 @@ function applyUpgradeEffect(id) {
 // ═══ HOME ═══
 function goToHome() {
   gameActive = false; deathTime = 0;
+  Audio.sfxUiBack();
   Audio.stopAllBgm();
   if (animId) { cancelAnimationFrame(animId); animId = null; }
   document.body.classList.remove('game-active');
@@ -842,7 +848,7 @@ function toggleGameMode() {
     spB.classList.toggle('active', gameMode === '3d');
   }
   // Click feedback sound
-  try { Audio.init(); Audio.resume(); } catch(e) {}
+  Audio.sfxUiToggle();
 }
 function setGameMode(m) {
   if (m !== gameMode) toggleGameMode();
@@ -913,6 +919,8 @@ function playThemeTransition(fromId, toId, onDone) {
   cv.style.transition = '';
   cv.style.opacity = '1';
   cv.style.display = 'block';
+
+  Audio.sfxUiThemeTransition();
 
   const IS_C2S = (fromId === 'cassette');   // cassette → spring
   const TOTAL     = IS_C2S ? 2000 : 1800;
@@ -1275,6 +1283,7 @@ function applyGoLang() {
 
 function toggleGoLang() {
   goLang = goLang === 'en' ? 'cn' : 'en';
+  Audio.sfxUiClick();
   applyGoLang();
 }
 
@@ -1447,71 +1456,135 @@ function openSettings() {
   sfxEl.style.setProperty('--val', sfxPct + '%');
   document.getElementById('cfgSfxPct').textContent = sfxPct + '%';
 
+  // Init ring display sliders
+  const ringOpEl = document.getElementById('cfgRingOpacitySlider');
+  if (ringOpEl) {
+    ringOpEl.value = ringOpacity;
+    ringOpEl.style.setProperty('--val', ringOpacity + '%');
+    document.getElementById('cfgRingOpacityPct').textContent = ringOpacity + '%';
+  }
+  const ringDpEl = document.getElementById('cfgRingDepthSlider');
+  if (ringDpEl) {
+    ringDpEl.value = ringDepth;
+    ringDpEl.style.setProperty('--val', ringDepth + '%');
+    document.getElementById('cfgRingDepthPct').textContent = ringDepth + '%';
+  }
+  const ringSzEl = document.getElementById('cfgRingSizeSlider');
+  if (ringSzEl) {
+    ringSzEl.value = ringSize;
+    ringSzEl.style.setProperty('--val', ringSize + '%');
+    document.getElementById('cfgRingSizePct').textContent = ringSize + '%';
+  }
+
   // Init difficulty card active state
   document.querySelectorAll('.cfg-diff-card').forEach(card => {
     card.classList.toggle('active', card.dataset.diff === difficulty);
   });
 
+  screen.classList.remove('hiding');
   screen.classList.add('show');
-  // Initialize theme card previews
+  Audio.sfxUiSlideIn();
   previewTheme('cassette');
   previewTheme('spring');
 }
 
 function closeSettings() {
   const screen = document.getElementById('cfgScreen');
-  if (screen) screen.classList.remove('show');
+  if (!screen) return;
+  screen.classList.add('hiding');
+  screen.classList.remove('show');
+  Audio.sfxUiSlideOut();
+  clearTimeout(screen._hideTimer);
+  screen._hideTimer = setTimeout(() => {
+    screen.classList.remove('hiding');
+  }, 400);
 }
 
 // ═══ OPERATOR'S MANUAL ═══
 
 let manualLang = 'en';
 let manualCurrentPage = 0;
-const MANUAL_PAGE_COUNT = 6;
+const MANUAL_PAGE_COUNT = 9;
 
 const MANUAL_I18N = {
+  // ── 标题 ──
   t_move:  {en:'§ SECTION 01 — MOVE',          cn:'§ 章节 01 — 移动操控'},
   t_combo: {en:'§ SECTION 02 — COMBO',         cn:'§ 章节 02 — 连击系统'},
-  t_laser: {en:'§ SECTION 03 — LASER',         cn:'§ 章节 03 — 激光武器'},
+  t_laser: {en:'§ SECTION 03 — LASER / SHOCKWAVE', cn:'§ 章节 03 — 激光 / 冲击波'},
   t_skill: {en:'§ SECTION 04 — SKILL',         cn:'§ 章节 04 — 主动技能'},
   t_evo:   {en:'§ SECTION 05 — EVOLUTION',     cn:'§ 章节 05 — 进化树'},
   t_threat:{en:'§ SECTION 06 — THREAT',        cn:'§ 章节 06 — 威胁系统'},
+  t_diff:  {en:'§ SECTION 07 — DIFFICULTY',    cn:'§ 章节 07 — 难度设置'},
+  t_ui:    {en:'§ SECTION 08 — INTERFACE & THEMES', cn:'§ 章节 08 — 界面与主题'},
+  t_cube:  {en:'§ SECTION 09 — 3D CUBE MODE',  cn:'§ 章节 09 — 3D 立方体模式'},
+  // ── 第 1 页：移动操控（扩展） ──
   c_move: {
-    en:'<p>Navigate your snake across the hexagonal grid.</p><p><kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> or <kbd>↑</kbd> <kbd>←</kbd> <kbd>↓</kbd> <kbd>→</kbd> — Change direction</p><p>Eat the flashing food cell to grow longer and earn points. The longer you survive, the higher the threat level rises.</p><p>Avoid collisions with walls, enemy snakes, and your own body — any contact is fatal.</p>',
-    cn:'<p>在六边形网格上操控你的蛇。</p><p><kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> 或 <kbd>↑</kbd> <kbd>←</kbd> <kbd>↓</kbd> <kbd>→</kbd> — 改变方向</p><p>吃掉闪烁的食物来增长身体并获得分数。存活时间越长，威胁等级越高。</p><p>避免碰撞墙壁、敌蛇和自己的身体 — 任何接触都会致命。</p>'
+    en:'<p>Navigate your snake across the hexagonal grid.</p><p><kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> or <kbd>↑</kbd> <kbd>←</kbd> <kbd>↓</kbd> <kbd>→</kbd> — Change direction</p><p>Eat the flashing food cell to grow longer and earn points. The longer you survive, the higher the threat level rises.</p><p>Avoid collisions with walls, enemy snakes, and your own body — any contact is fatal.</p><p>With the <span class="mn-branch mobility">QUICK TURN</span> evolution unlocked, press the opposite direction to instantly reverse 180° (requires snake length ≥ 2).</p><p>On mobile: swipe to steer.</p>',
+    cn:'<p>在六边形网格上操控你的蛇。</p><p><kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> 或 <kbd>↑</kbd> <kbd>←</kbd> <kbd>↓</kbd> <kbd>→</kbd> — 改变方向</p><p>吃掉闪烁的食物来增长身体并获得分数。存活时间越长，威胁等级越高。</p><p>避免碰撞墙壁、敌蛇和自己的身体 — 任何接触都会致命。</p><p>解锁<span class="mn-branch mobility">急停反应</span>进化后，蛇身长度 ≥ 2 时可反向 180° 瞬间掉头。</p><p>移动端：单指滑动控制方向。</p>'
   },
+  // ── 第 2 页：连击系统（扩展） ──
   c_combo: {
-    en:'<p>Eating food in quick succession builds a combo chain:</p><p>×1.0 → ×1.5 → ×2.0 → ×2.5 → ... → ×4.0 (max)</p><p>Each food eaten within the combo window extends the timer. If you go too long without eating, the combo resets to ×1.</p><p>Higher combos mean higher scores — plan your route to chain food pickups efficiently.</p>',
-    cn:'<p>快速连续吃食物可以积累连击：</p><p>×1.0 → ×1.5 → ×2.0 → ×2.5 → ... → ×4.0（上限）</p><p>在连击时间窗口内吃到食物会刷新计时器。如果间隔太久没吃到食物，连击倍率重置为 ×1。</p><p>更高的连击意味着更高的分数 — 规划路线以高效串联食物。</p>'
+    en:'<p>Eating food in quick succession builds a combo chain:</p><p>×1.0 → ×1.5 → ×2.0 → ×2.5 → ... → ×4.0 (max)</p><p>Each food eaten within the combo window extends the timer. If you go too long without eating, the combo resets to ×1.</p><p>The <span class="mn-branch mobility">COMBO EXTENSION</span> evolution adds +1.5s to the reset window, giving you more time to chain pickups.</p><p>In <span class="mn-branch laser">3D CUBE</span> mode the combo steps differently: ×1.0 → (every 3 foods) → ×1.5 → ×2.0 → ... → ×4.0.</p><p>Higher combos mean higher scores — plan your route to chain food pickups efficiently.</p>',
+    cn:'<p>快速连续吃食物可以积累连击：</p><p>×1.0 → ×1.5 → ×2.0 → ×2.5 → ... → ×4.0（上限）</p><p>在连击时间窗口内吃到食物会刷新计时器。如果间隔太久没吃到食物，连击倍率重置为 ×1。</p><p>解锁<span class="mn-branch mobility">持久连击</span>进化可将连击窗口延长 +1.5 秒，给你更多时间串联食物。</p><p><span class="mn-branch laser">3D 立方体</span>模式下连击节奏不同：×1.0 →（每 3 个食物）→ ×1.5 → ×2.0 → ... → ×4.0。</p><p>更高的连击意味着更高的分数 — 规划路线以高效串联食物。</p>'
   },
+  // ── 第 3 页：激光 / 冲击波（扩展） ──
   c_laser: {
-    en:'<p><kbd>J</kbd> — Fire laser beam in your current direction.</p><p>The laser has a 5-second cooldown (upgradeable). It damages enemy snakes on contact, removing segments or killing them outright.</p><p>Upgrade paths include: multi-beam, pierce (penetrate through enemies), double damage, and slow enchantment.</p><p>The cooldown indicator is shown on the HUD bar at the top.</p>',
-    cn:'<p><kbd>J</kbd> — 向当前方向发射激光。</p><p>激光有 5 秒冷却时间（可升级缩短）。命中敌蛇时会移除身体段或直接击杀。</p><p>升级路线包括：多束激光、穿透（贯穿敌蛇）、双倍伤害、减速附魔。</p><p>冷却进度显示在顶部 HUD 栏中。</p>'
+    en:'<p><kbd>J</kbd> — Fire laser beam in your current direction.</p><p>Base cooldown: 5s (upgradeable to 4s → 3s). It damages enemy snakes on contact, removing segments or killing them outright.</p><p>Upgrade paths: <span class="mn-branch laser">multi-beam</span> (1→2→3 beams), <span class="mn-branch laser">pierce</span> (penetrate 1 enemy), <span class="mn-branch laser">double damage</span>, <span class="mn-branch laser">slow enchant</span> (hit slows enemy for 3s).</p><p>The screen-edge glow bar (amber, top edge) shows laser cooldown status. It pulses when ready and flashes on cooldown completion.</p><p>In <span class="mn-branch laser">3D CUBE</span> mode, the laser is replaced by a <strong>SHOCKWAVE</strong> (<kbd>J</kbd> or <kbd>Space</kbd>). It expands from the snake head in a BFS wave (base range 2, upgradeable 3→4). Base cooldown: 8s (upgradeable to 6s→4s). The <span class="mn-branch mobility">WALL BREAK</span> upgrade destroys obstacles in the shockwave\'s path.</p>',
+    cn:'<p><kbd>J</kbd> — 向当前方向发射激光。</p><p>基础冷却 5 秒（可升级至 4s→3s）。命中敌蛇时移除身体段或直接击杀。</p><p>升级路线：<span class="mn-branch laser">多束激光</span>（1→2→3 束）、<span class="mn-branch laser">穿透</span>（贯穿 1 个敌蛇）、<span class="mn-branch laser">双倍伤害</span>、<span class="mn-branch laser">减速附魔</span>（命中减速 3s）。</p><p>屏幕顶部琥珀色边缘光条显示激光冷却状态。就绪时脉冲闪烁，冷却完成时爆闪提示。</p><p><span class="mn-branch laser">3D 立方体</span>模式中激光被<strong>冲击波</strong>取代（<kbd>J</kbd> 或 <kbd>Space</kbd>）。从蛇头 BFS 波状扩散（基础范围 2，可升级 3→4）。基础冷却 8s（可缩短至 6s→4s）。<span class="mn-branch mobility">破壁冲击</span>升级可摧毁路径上的障碍物。</p>'
   },
+  // ── 第 4 页：主动技能（扩展） ──
   c_skill: {
-    en:'<p><kbd>K</kbd> — Time Slow: briefly freeze the world, then slow enemies and bullets to 20% speed while you move at 70%. Cooldown: 20s.</p><p><kbd>L</kbd> — Tracking Missiles: launch homing missiles that orbit your head, then lock onto and pursue the nearest enemy. Cooldown: 10s.</p><p>Both skills can be enhanced through the Evolution Tree — increase duration, reduce cooldown, add missile count or pierce.</p>',
-    cn:'<p><kbd>K</kbd> — 时间减缓：短暂冻结世界，随后敌人和子弹减速至 20%，你的移速为 70%。冷却：20 秒。</p><p><kbd>L</kbd> — 追踪飞弹：发射环绕蛇头的自导飞弹，锁定并追踪最近的敌蛇。冷却：10 秒。</p><p>两个技能都可以通过进化树强化 — 增加持续时间、缩短冷却、增加飞弹数量或穿透。</p>'
+    en:'<p><kbd>K</kbd> — Time Slow: briefly freeze the world (400ms), then slow enemies to 20% speed and bullets to 30% while you move at 70%. Base cooldown: 20s. Base duration: 5s.</p><p><kbd>L</kbd> — Tracking Missiles: launch homing missiles that orbit your head for 500ms, then lock onto and pursue the nearest enemy. Base cooldown: 10s. Base missiles: 1.</p><p>Screen-edge glow bars show skill cooldowns: left (ice blue) = Time Slow, right (cyan) = Missiles. They pulse when ready.</p><p>On mobile devices (screen width &lt; 1024px), Time Slow activates automatically when its cooldown is ready.</p><p>In <span class="mn-branch laser">3D CUBE</span> mode, active skills (K/L) are absent — all offensive power comes from the Shockwave.</p>',
+    cn:'<p><kbd>K</kbd> — 时间减缓：短暂冻结世界（400ms），随后敌人减速至 20%、子弹减速至 30%，你的移速保持 70%。基础冷却 20s，基础持续 5s。</p><p><kbd>L</kbd> — 追踪飞弹：发射环绕蛇头 500ms 后锁定追踪最近敌蛇的自导飞弹。基础冷却 10s，基础数量 1。</p><p>屏幕边缘光条显示技能冷却：左侧（冰蓝色）= 时间减缓，右侧（青色）= 追踪飞弹。就绪时脉冲闪烁。</p><p>移动端设备（屏幕宽度 &lt; 1024px）在冷却就绪时会自动释放时间减缓。</p><p><span class="mn-branch laser">3D 立方体</span>模式中没有 K/L 主动技能 — 所有攻击力来自冲击波。</p>'
   },
+  // ── 第 5 页：进化树（重写） ──
   c_evo: {
-    en:'<p>Collect blue XP orbs dropped by defeated enemies. Fill the XP bar to level up and unlock one evolution node.</p><p>Three upgrade paths:</p><p>▸ <span class="mn-branch laser">LASER</span> — More beams, pierce, damage, slow enchant. High investment, devastating control.</p><p>▸ <span class="mn-branch missile">MISSILE</span> — More missiles, wall pierce, bonus damage. Independent burst path.</p><p>▸ <span class="mn-branch mobility">MOBILITY</span> — Speed boost, quick turn, time slow upgrades, combo extension, XP boost. Growth-oriented.</p><p>Each level-up expands the map, giving you more room but also more enemies.</p>',
-    cn:'<p>收集击败敌蛇掉落的蓝色 XP 球。填满经验条即可升级并解锁一个进化节点。</p><p>三条升级路线：</p><p>▸ <span class="mn-branch laser">激光</span> — 更多光束、穿透、伤害、减速附魔。高投入，毁灭性控制。</p><p>▸ <span class="mn-branch missile">飞弹</span> — 更多飞弹、穿墙、额外伤害。独立爆发路线。</p><p>▸ <span class="mn-branch mobility">机动</span> — 加速、急转、时缓强化、连击延长、经验加成。成长导向。</p><p>每次升级会扩大地图，给你更多空间，但也带来更多敌人。</p>'
+    en:'<p>Collect blue XP orbs dropped by defeated enemies. Each orb grants +1 XP (+2 with <span class="mn-branch mobility">XP BOOST</span>). Fill the XP bar to level up and unlock one evolution node.</p><p><strong>2D CLASSIC — 17 nodes across 3 branches:</strong></p><p>▸ <span class="mn-branch laser">LASER</span> (7 nodes) — laser2•laser3 (multi-beam), cd1•cd2 (cooldown 5s→4s→3s), pierce, dmg2 (double damage), slow (slow enchant). High investment, devastating control.</p><p>▸ <span class="mn-branch missile">MISSILE</span> (3 nodes) — ms_count (+2 missiles), ms_pierce (wall pierce), ms_dmg (+1 damage). Independent burst path.</p><p>▸ <span class="mn-branch mobility">MOBILITY</span> (7 nodes) — spd1•spd2 (speed +20%×2), qturn (180° reverse), ts_dur (+2s time slow), ts_cd (−5s cooldown), combo_ext (+1.5s combo window), xp_boost (+50% XP).</p><p><strong>3D CUBE — 8 nodes across 2 branches:</strong></p><p>▸ <span class="mn-branch laser">COMBAT</span> (5 nodes) — sw2•sw3 (shockwave range 2→3→4), swcd1•swcd2 (cooldown ×0.75→×0.5), wbreak (destroy walls).</p><p>▸ <span class="mn-branch mobility">MOBILITY</span> (3 nodes) — spd1•spd2 (speed +20%×2), qturn (180° reverse).</p><p>Each level-up expands the map, giving you more room but also more enemies.</p>',
+    cn:'<p>收集击败敌蛇掉落的蓝色 XP 球。每颗球 +1 XP（<span class="mn-branch mobility">经验强化</span>升级后 +2）。填满经验条即可升级并解锁一个进化节点。</p><p><strong>经典 2D 模式 — 17 个节点，3 条分支：</strong></p><p>▸ <span class="mn-branch laser">激光</span>（7 节点）— 双激光•三激光（多束）、急速冷却Ⅰ•Ⅱ（5s→4s→3s）、穿透、强力激光（双倍伤害）、减速附魔。高投入，毁灭性控制。</p><p>▸ <span class="mn-branch missile">飞弹</span>（3 节点）— 飞弹+（+2）、飞弹穿透（穿墙）、飞弹伤+（+1 伤害）。独立爆发路线。</p><p>▸ <span class="mn-branch mobility">机动</span>（7 节点）— 加速Ⅰ•Ⅱ（速度 +20%×2）、急停反应（180° 掉头）、时缓+（+2s 持续）、时缓 CD-（-5s 冷却）、持久连击（+1.5s 窗口）、经验强化（+50% XP）。</p><p><strong>3D 立方体 — 8 个节点，2 条分支：</strong></p><p>▸ <span class="mn-branch laser">战斗</span>（5 节点）— 冲击波+•++（范围 2→3→4）、急速冷却Ⅰ•Ⅱ（冷却 ×0.75→×0.5）、破壁冲击（摧毁墙壁）。</p><p>▸ <span class="mn-branch mobility">机动</span>（3 节点）— 加速Ⅰ•Ⅱ（速度 +20%×2）、急停反应（180° 掉头）。</p><p>每次升级会扩大地图，给你更多空间，但也带来更多敌人。</p>'
   },
+  // ── 第 6 页：威胁系统（扩展） ──
   c_threat: {
-    en:'<p>Threat level increases over time. Higher threat means:</p><p>▸ More enemy snakes spawning on the map</p><p>▸ Enemies shoot bullets more frequently</p><p>▸ Bullets gain speed and spread patterns at higher levels</p><p>Walls appear and disappear periodically — they block movement, lasers, and missiles.</p><p>Speed items (▲/▼) spawn on the map — collect them to temporarily boost or reduce your speed.</p>',
-    cn:'<p>威胁等级随时间持续上升。更高的威胁意味着：</p><p>▸ 地图上生成更多敌蛇</p><p>▸ 敌蛇更频繁地发射子弹</p><p>▸ 高等级时子弹获得加速和扩散模式</p><p>墙壁会周期性地出现和消失 — 它们阻挡移动、激光和飞弹。</p><p>速度道具（▲/▼）会在地图上生成 — 拾取可临时加速或减速。</p>'
+    en:'<p>Threat level increases over time. Higher threat means:</p><p>▸ More enemy snakes spawn (capped by difficulty level).</p><p>▸ Enemy AI uses A* pathfinding to chase food or your head, firing bullets along axis when line-of-sight is clear.</p><p>▸ Bullets evolve: <strong>Normal</strong> (1 cell/tick) → <strong>Fast</strong> (2 cells/tick at threat ≥ 3) → <strong>Spread</strong> (3-direction fan at threat ≥ 5).</p><p>▸ Walls spawn near food to block paths. BFS reachability check ensures the map stays traversable. Walls decay after 28~45s. Active wall count scales with threat level.</p><p>▸ Speed items (▲ accelerate, ▼ decelerate) spawn every 6s on the map. Each stacks a ×1.5 multiplier for 15s — plan your pickup order.</p><p>On death, screen shakes (400ms). Missile impacts also trigger screen shake (120ms).</p>',
+    cn:'<p>威胁等级随时间持续上升。更高的威胁意味着：</p><p>▸ 地图上生成更多敌蛇（上限由难度决定）。</p><p>▸ 敌蛇使用 A* 寻路算法追踪食物或你的蛇头，在视线畅通时沿轴射击。</p><p>▸ 子弹进化：<strong>普通</strong>（每 tick 1 格）→ <strong>快速</strong>（威胁 ≥ 3 时每 tick 2 格）→ <strong>散射</strong>（威胁 ≥ 5 时 3 方向扇形）。</p><p>▸ 墙壁在食物附近生成以阻挡路径。系统通过 BFS 连通性检测确保地图始终可通行。墙壁 28~45 秒后消失。活跃墙壁数量随威胁等级增加。</p><p>▸ 速度道具（▲ 加速、▼ 减速）每 6 秒在地图上生成。每层叠加 ×1.5 倍率，持续 15 秒 — 合理规划拾取顺序。</p><p>死亡时屏幕震动（400ms），飞弹撞击也会触发屏幕震动（120ms）。</p>'
+  },
+  // ── 第 7 页：难度设置（新增） ──
+  c_diff: {
+    en:'<p>Five difficulty tiers — choose at the Settings panel (⚙). Setting persists via localStorage.</p><table class="mn-diff-table"><tr><th></th><th>EASY</th><th>NORMAL</th><th>HARD</th><th>HELL</th></tr><tr><td>Initial enemies</td><td>0</td><td>0</td><td>1</td><td>2</td></tr><tr><td>First enemy delay</td><td>30s</td><td>20s</td><td>15s</td><td>10s</td></tr><tr><td>Spawn interval</td><td>30s</td><td>20s</td><td>12s</td><td>8s</td></tr><tr><td>Threat interval</td><td>60s</td><td>30s</td><td>20s</td><td>15s</td></tr><tr><td>Max enemies</td><td>3</td><td>5</td><td>8</td><td>12</td></tr><tr><td>Enemy bullet CD</td><td>10s</td><td>8s</td><td>6s</td><td>4s</td></tr><tr><td>Enemy tick</td><td>400ms</td><td>320ms</td><td>260ms</td><td>200ms</td></tr><tr><td>XP multiplier</td><td>×1.0</td><td>×1.0</td><td>×1.25</td><td>×1.5</td></tr><tr><td>Threat cap</td><td>Lv.5</td><td>Lv.8</td><td>Lv.10</td><td>Lv.15</td></tr></table><p><strong>NIGHTMARE</strong> — locked tier. Extreme challenge for the future.</p>',
+    cn:'<p>五档难度设置 — 在设置面板（⚙）中选择。选择持久化到 localStorage。</p><table class="mn-diff-table"><tr><th></th><th>简单</th><th>标准</th><th>困难</th><th>地狱</th></tr><tr><td>初始敌蛇</td><td>0</td><td>0</td><td>1</td><td>2</td></tr><tr><td>首次敌蛇延迟</td><td>30s</td><td>20s</td><td>15s</td><td>10s</td></tr><tr><td>生成间隔</td><td>30s</td><td>20s</td><td>12s</td><td>8s</td></tr><tr><td>威胁增长间隔</td><td>60s</td><td>30s</td><td>20s</td><td>15s</td></tr><tr><td>最大敌蛇数</td><td>3</td><td>5</td><td>8</td><td>12</td></tr><tr><td>子弹冷却</td><td>10s</td><td>8s</td><td>6s</td><td>4s</td></tr><tr><td>敌蛇移动间隔</td><td>400ms</td><td>320ms</td><td>260ms</td><td>200ms</td></tr><tr><td>XP 倍率</td><td>×1.0</td><td>×1.0</td><td>×1.25</td><td>×1.5</td></tr><tr><td>威胁上限</td><td>Lv.5</td><td>Lv.8</td><td>Lv.10</td><td>Lv.15</td></tr></table><p><strong>梦魇</strong> — 锁定难度，未来的极限挑战。</p>'
+  },
+  // ── 第 8 页：界面与主题（新增） ──
+  c_ui: {
+    en:'<p><strong>Two Themes</strong></p><p>▸ <span class="mn-branch laser">CASSETTE FUTURISM</span> — Amber/black palette, cyberpunk aesthetic, diamond-shaped food, BGM at 126 BPM (A minor pentatonic).</p><p>▸ <span class="mn-branch mobility">SPRING FESTIVAL</span> — Vermillion/gold palette, Chinese New Year theme, firework food, BGM at 108 BPM (Chinese pentatonic scale with pipa, gong, drum, erhu, muyu).</p><p>Switch themes in Settings → Theme. Transition animations include fireworks and scroll effects.</p><p><strong>Settings Panel (⚙)</strong></p><p>4 tabs: Theme / Volume (BGM &amp; SFX sliders) / Difficulty / Graphics (ring opacity, depth, size).</p><p><strong>Screen-Edge Cooldown Glow</strong></p><p>Top edge (amber) = Laser/Shockwave. Left edge (ice blue) = Time Slow. Right edge (cyan) = Missiles. Pulses when ready, flashes on completion.</p><p><strong>Mobile Controls</strong></p><p>Swipe to steer. Two-finger tap = Laser. Three-finger tap = Missiles. Time Slow auto-activates on small screens.</p><p><strong>Auto-Save</strong></p><p>Best score, difficulty, and ring settings are saved via localStorage.</p>',
+    cn:'<p><strong>双主题系统</strong></p><p>▸ <span class="mn-branch laser">赛博磁带未来</span> — 琥珀/黑色调，赛博朋克美学，菱形食物，126 BPM（A 小调五声音阶）。</p><p>▸ <span class="mn-branch mobility">赛博春节</span> — 朱红/金色调，中国新年主题，烟花食物，108 BPM（宫商角徵羽五声音阶，含琵琶、锣、堂鼓、二胡、木鱼）。</p><p>在设置 → 主题中切换。切换动画包括烟花与卷轴效果。</p><p><strong>设置面板（⚙）</strong></p><p>4 个标签：主题 / 音量（BGM &amp; SFX 滑块）/ 难度 / 图形（环不透明度、深度、大小）。</p><p><strong>屏幕边缘冷却光条</strong></p><p>顶部（琥珀色）= 激光/冲击波。左侧（冰蓝）= 时间减缓。右侧（青色）= 追踪飞弹。就绪时脉冲，完成时爆闪。</p><p><strong>移动端控制</strong></p><p>滑动控制方向。双指点击 = 激光。三指点击 = 飞弹。小屏设备时间减缓自动释放。</p><p><strong>自动保存</strong></p><p>最高分、难度设置、环设置自动保存到 localStorage。</p>'
+  },
+  // ── 第 9 页：3D 立方体模式（新增） ──
+  c_cube: {
+    en:'<p><strong>Cube Structure</strong></p><p>6 faces (FRONT/RIGHT/BACK/LEFT/TOP/BOTTOM), each a 12×12 hex grid. Cross-face movement via adjacency table. Camera uses quaternion rotation with smooth 350ms slerp transitions between faces.</p><p><strong>Shockwave Weapon</strong> (replaces Laser + Skills)</p><p><kbd>J</kbd> or <kbd>Space</kbd> — BFS wave from snake head. Base range 2 (upgradeable 3→4). Base cooldown 8s (upgradeable 6s→4s). Wall Break upgrade destroys obstacles in range. Animation: glowing expanding cells for 600ms.</p><p><strong>Orbit Ring HUD</strong></p><p>3 orbital rings (radius 2.15 / 2.5 / 2.85) with unique tilts and dash patterns. Amber / gold / beige colors. Scanning cursor dots cycle along each ring.</p><p><strong>Minimap</strong></p><p>Cross-layout of all 6 faces. Shows food, walls, XP orbs, and snake positions. Current face highlighted.</p><p><strong>Key Differences vs 2D</strong></p><p>No enemy bullets, no speed items, no K/L skills. Combo steps every 3 foods instead of every food. 8 unique evolution nodes instead of 17. TRON-style perspective floor with floating binary dust particles.</p>',
+    cn:'<p><strong>立方体结构</strong></p><p>6 个面（前/右/后/左/上/下），每面 12×12 六边形网格。通过邻接表实现跨面移动。摄像机使用四元数旋转，面间过渡使用 350ms 球面线性插值（slerp）。</p><p><strong>冲击波武器</strong>（替代激光和主动技能）</p><p><kbd>J</kbd> 或 <kbd>Space</kbd> — 从蛇头 BFS 波状扩散。基础范围 2（可升级 3→4）。基础冷却 8s（可缩短至 6s→4s）。破壁冲击升级可摧毁范围内的障碍物。动画：格子发光扩散 600ms。</p><p><strong>轨道环 HUD</strong></p><p>3 个轨道环（半径 2.15/2.5/2.85），各自有不同的倾斜角度和虚线模式。颜色：琥珀/金/米色。光标点沿各环循环扫描。</p><p><strong>小地图</strong></p><p>6 个面的十字布局投影。显示食物、墙壁、XP 球和蛇的位置，高亮当前所在面。</p><p><strong>与 2D 模式的主要区别</strong></p><p>无敌人子弹、无速度道具、无 K/L 主动技能。连击每 3 个食物递增（非逐个）。8 个专属进化节点（2D 有 17 个）。TRON 风格透视地板，漂浮二进制尘埃粒子。</p>'
   }
 };
 
 function openManual() {
-  manualCurrentPage = 0;
-  document.getElementById('manualScreen').classList.add('show');
+  const screen = document.getElementById('manualScreen');
+  if (!screen) return;
+  screen.classList.remove('hiding');
+  screen.classList.add('show');
+  Audio.sfxUiSlideIn();
   updateManualStack();
   updateManualPageIndicator();
   applyManualLang();
 }
 
 function closeManual() {
-  document.getElementById('manualScreen').classList.remove('show');
+  const screen = document.getElementById('manualScreen');
+  if (!screen) return;
+  screen.classList.add('hiding');
+  screen.classList.remove('show');
+  Audio.sfxUiSlideOut();
+  clearTimeout(screen._hideTimer);
+  screen._hideTimer = setTimeout(() => {
+    screen.classList.remove('hiding');
+  }, 400);
 }
 
 function updateManualStack() {
@@ -1538,6 +1611,7 @@ function updateManualPageIndicator() {
 
 function manualNextPage() {
   if (manualCurrentPage >= MANUAL_PAGE_COUNT - 1) return;
+  Audio.sfxUiPageFlip();
   const oldPage = document.getElementById('manPage' + manualCurrentPage);
   if (oldPage) {
     oldPage.classList.remove('page-front');
@@ -1562,6 +1636,7 @@ function manualNextPage() {
 
 function manualPrevPage() {
   if (manualCurrentPage <= 0) return;
+  Audio.sfxUiPageFlip();
   const oldPage = document.getElementById('manPage' + manualCurrentPage);
   if (oldPage) {
     oldPage.classList.remove('page-front');
@@ -1585,6 +1660,7 @@ function manualPrevPage() {
 
 function toggleManualLang() {
   manualLang = manualLang === 'en' ? 'cn' : 'en';
+  Audio.sfxUiClick();
   applyManualLang();
 }
 
@@ -1605,6 +1681,8 @@ function switchCfgTab(tab) {
   document.getElementById('cfgTabTheme').classList.toggle('active', tab === 'theme');
   document.getElementById('cfgTabVol').classList.toggle('active', tab === 'volume');
   document.getElementById('cfgTabDiff').classList.toggle('active', tab === 'difficulty');
+  document.getElementById('cfgTabGraphics').classList.toggle('active', tab === 'graphics');
+  Audio.sfxUiClick();
 
   const content = document.querySelector('.cfg-content');
   const startH = content.offsetHeight;
@@ -1612,6 +1690,7 @@ function switchCfgTab(tab) {
   document.getElementById('cfgPaneTheme').style.display = tab === 'theme' ? 'block' : 'none';
   document.getElementById('cfgPaneVolume').style.display = tab === 'volume' ? 'block' : 'none';
   document.getElementById('cfgPaneDifficulty').style.display = tab === 'difficulty' ? 'block' : 'none';
+  document.getElementById('cfgPaneGraphics').style.display = tab === 'graphics' ? 'block' : 'none';
 
   const endH = content.scrollHeight;
   if (startH !== endH) {
@@ -1641,12 +1720,38 @@ function onSfxSlider(el) {
 function toggleCfgMem() {
   const toggle = document.getElementById('cfgMemToggle');
   if (toggle) toggle.classList.toggle('on');
+  Audio.sfxUiToggle();
+}
+
+function onRingOpacitySlider(el) {
+  const pct = parseInt(el.value);
+  el.style.setProperty('--val', pct + '%');
+  document.getElementById('cfgRingOpacityPct').textContent = pct + '%';
+  ringOpacity = pct;
+  try { localStorage.setItem('hexsnake_ringOpacity', pct); } catch(e) {}
+}
+
+function onRingDepthSlider(el) {
+  const pct = parseInt(el.value);
+  el.style.setProperty('--val', pct + '%');
+  document.getElementById('cfgRingDepthPct').textContent = pct + '%';
+  ringDepth = pct;
+  try { localStorage.setItem('hexsnake_ringDepth', pct); } catch(e) {}
+}
+
+function onRingSizeSlider(el) {
+  const pct = parseInt(el.value);
+  el.style.setProperty('--val', pct + '%');
+  document.getElementById('cfgRingSizePct').textContent = pct + '%';
+  ringSize = pct;
+  try { localStorage.setItem('hexsnake_ringSize', pct); } catch(e) {}
 }
 
 // ═══ DIFFICULTY SELECT ═══
 function selectDifficulty(id) {
   // Update global state
   difficulty = id;
+  Audio.sfxUiClick();
 
   // Update active state on cards
   document.querySelectorAll('.cfg-diff-card').forEach(card => {
@@ -1714,6 +1819,7 @@ function showDiffDetail(id) {
   }
 
   // 首次显示
+  Audio.sfxUiPanelOpen();
   updateDetailContent(id, panel);
   panel.classList.add('show');
   currentDetailDiff = id;
@@ -1721,6 +1827,7 @@ function showDiffDetail(id) {
 
 function hideDiffDetail() {
   if (hideDetailTimer) clearTimeout(hideDetailTimer);
+  Audio.sfxUiPanelClose();
   const delay = (typeof isMobile !== 'undefined' && isMobile) ? 0 : 1000;
   hideDetailTimer = setTimeout(() => {
     const panel = document.getElementById('diffDetailPanel');
@@ -1940,6 +2047,7 @@ let flashTimer=null;
 function flash(msg) {
   const el=document.getElementById('flashMsg');
   el.textContent=msg; el.style.opacity='1';
+  if (msg) Audio.sfxUiNotificationPing();
   if(flashTimer) clearTimeout(flashTimer);
   flashTimer=setTimeout(()=>{el.style.opacity='0';},1800);
 }

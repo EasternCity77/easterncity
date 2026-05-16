@@ -258,6 +258,138 @@ const Audio = (() => {
     osc('sine', 2100, t + 0.05, 0.06, 0.08);
   }
 
+  // ── UI SOUNDS ──
+  const _uiType = () => getTheme().id === 'spring' ? 'sine' : 'square';
+
+  // Generic click — short blip
+  function sfxUiClick() {
+    if (_sfxGuard()) return;
+    const t = ac.currentTime;
+    osc(_uiType(), 800, t, 0.05, 0.07);
+  }
+
+  // Confirm action — two-note rising
+  function sfxUiConfirm() {
+    if (_sfxGuard()) return;
+    const t = ac.currentTime;
+    osc(_uiType(), 440, t, 0.09, 0.11);
+    osc(_uiType(), 660, t + 0.07, 0.07, 0.09);
+  }
+
+  // Back / retreat — descending sweep
+  function sfxUiBack() {
+    if (_sfxGuard()) return;
+    const t = ac.currentTime;
+    osc('triangle', 660, t, 0.12, 0.10, null, 330);
+  }
+
+  // Toggle / switch — mechanical click
+  function sfxUiToggle() {
+    if (_sfxGuard()) return;
+    const t = ac.currentTime;
+    osc('triangle', 1200, t, 0.04, 0.07);
+    noise(t, 0.03, 0.06, 3000);
+  }
+
+  // Panel open — rising sweep
+  function sfxUiPanelOpen() {
+    if (_sfxGuard()) return;
+    const t = ac.currentTime;
+    osc('sine', 300, t, 0.15, 0.10, null, 600);
+  }
+
+  // Panel close — falling sweep
+  function sfxUiPanelClose() {
+    if (_sfxGuard()) return;
+    const t = ac.currentTime;
+    osc('sine', 600, t, 0.12, 0.10, null, 300);
+  }
+
+  // Panel slide in — noise whoosh + low→mid sweep
+  function sfxUiSlideIn() {
+    if (_sfxGuard()) return;
+    const t = ac.currentTime;
+    noise(t, 0.32, 0.07, 600);
+    osc('sine', 160, t, 0.28, 0.05, null, 480);
+  }
+
+  // Panel slide out — noise whoosh + mid→high sweep
+  function sfxUiSlideOut() {
+    if (_sfxGuard()) return;
+    const t = ac.currentTime;
+    noise(t, 0.25, 0.06, 3000);
+    osc('sine', 420, t, 0.22, 0.05, null, 750);
+  }
+
+  // Manual page flip — thin noise + high blip
+  function sfxUiPageFlip() {
+    if (_sfxGuard()) return;
+    const t = ac.currentTime;
+    noise(t, 0.07, 0.05, 8000);
+    osc('sine', 1800, t, 0.05, 0.04);
+  }
+
+  // Evolution hex select — resonant rising blip
+  function sfxUiHexSelect() {
+    if (_sfxGuard()) return;
+    const t = ac.currentTime;
+    osc('triangle', 1000, t, 0.08, 0.12, null, 1400);
+  }
+
+  // Evolution hex locked — low dull thud
+  function sfxUiHexLocked() {
+    if (_sfxGuard()) return;
+    const t = ac.currentTime;
+    osc('sine', 150, t, 0.10, 0.08, null, 60);
+  }
+
+  // Evolution hex already unlocked — double beep
+  function sfxUiHexAlready() {
+    if (_sfxGuard()) return;
+    const t = ac.currentTime;
+    osc('sine', 800, t, 0.05, 0.08);
+    osc('sine', 1200, t + 0.04, 0.04, 0.06);
+  }
+
+  // Upgrade install — power-up sweep ending in ping
+  function sfxUiUpgradeInstall() {
+    if (_sfxGuard()) return;
+    const t = ac.currentTime;
+    osc('sawtooth', 150, t, 0.20, 0.12, null, 600);
+    osc('square', 300, t, 0.15, 0.08, null, 900);
+    osc('sine', 880, t + 0.18, 0.08, 0.14);
+  }
+
+  // Countdown tick — simple beep
+  function sfxUiCountdownTick() {
+    if (_sfxGuard()) return;
+    const t = ac.currentTime;
+    osc('sine', 800, t, 0.08, 0.10);
+  }
+
+  // Countdown go — ascending chime
+  function sfxUiCountdownGo() {
+    if (_sfxGuard()) return;
+    const t = ac.currentTime;
+    osc('sine', 880, t, 0.10, 0.12);
+    osc('sine', 1100, t + 0.08, 0.08, 0.10);
+  }
+
+  // Theme transition — whoosh sweep
+  function sfxUiThemeTransition() {
+    if (_sfxGuard()) return;
+    const t = ac.currentTime;
+    noise(t, 0.35, 0.08, 4000);
+    osc('sine', 150, t, 0.35, 0.06, null, 500);
+  }
+
+  // Notification ping — high ascending chime
+  function sfxUiNotificationPing() {
+    if (_sfxGuard()) return;
+    const t = ac.currentTime;
+    osc('sine', 1400, t, 0.10, 0.08, null, 1800);
+  }
+
   // ── SKILL SOUNDS ──
   // Time Slow activation — descending sweep with reverb feel
   function sfxTimeSlow() {
@@ -499,6 +631,12 @@ const Audio = (() => {
     sfxSpeedUp, sfxSpeedDown, sfxXP,
     sfxTimeSlow, sfxTimeSlowEnd, sfxMissileLock, sfxMissileFire, sfxMissileExplode,
     sfxCooldownReady,
+    sfxUiClick, sfxUiConfirm, sfxUiBack, sfxUiToggle,
+    sfxUiPanelOpen, sfxUiPanelClose, sfxUiPageFlip,
+    sfxUiSlideIn, sfxUiSlideOut,
+    sfxUiHexSelect, sfxUiHexLocked, sfxUiHexAlready,
+    sfxUiUpgradeInstall, sfxUiCountdownTick, sfxUiCountdownGo,
+    sfxUiThemeTransition, sfxUiNotificationPing,
   };
 })();
 
@@ -506,6 +644,7 @@ function toggleMute() {
   const m = Audio.toggleMute();
   const btn = document.getElementById('muteBtn');
   if (btn) { btn.textContent = m ? '♪ OFF' : '♪ ON'; btn.style.color = m ? '#C8281E' : '#7A7670'; }
+  if (!m) { Audio.sfxUiToggle(); }
 }
 
 // ═══════════════════════════════════════════════════════════

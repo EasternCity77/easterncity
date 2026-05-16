@@ -11,6 +11,12 @@ window.addEventListener('DOMContentLoaded', () => {
     if (savedDiff && ['easy', 'normal', 'hard', 'hell'].includes(savedDiff)) {
       difficulty = savedDiff;
     }
+    const savedRingOp = localStorage.getItem('hexsnake_ringOpacity');
+    if (savedRingOp !== null) ringOpacity = parseInt(savedRingOp);
+    const savedRingDp = localStorage.getItem('hexsnake_ringDepth');
+    if (savedRingDp !== null) ringDepth = parseInt(savedRingDp);
+    const savedRingSz = localStorage.getItem('hexsnake_ringSize');
+    if (savedRingSz !== null) ringSize = parseInt(savedRingSz);
   } catch(e) {}
 
   canvas=document.getElementById('gameCanvas');

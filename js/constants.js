@@ -9,6 +9,7 @@ const BASE_TICK     = 120;
 const BULLET_TICK   = 130;
 const LASER_CD_BASE = 5000;
 const COMBO_RESET_MS  = 3500;   // ms without eating before combo resets
+const INVULN_DURATION = 1500;   // ms invulnerability after taking damage
 const DISABLE_3D     = true;   // 临时关闭 3D 模式入口，改为 false 重新启用
 const LASER_VIS_MS  = 200;
 const WALL_LIFE_MIN = 28000;

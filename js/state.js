@@ -40,3 +40,8 @@ let timeSlowCracks = [];         // 裂纹数据（结束特效用）
 
 // ── DIFFICULTY ──
 let difficulty = 'normal';       // 全局难度设置：'easy' | 'normal' | 'hard' | 'hell' | 'nightmare'
+
+// ── RING DISPLAY ──
+let ringOpacity = 70;            // 刻度环不透明度 10-100
+let ringDepth = 50;              // 刻度环颜色深浅 0-100
+let ringSize = 100;              // 刻度盘大小 40-200 (%)

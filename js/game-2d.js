@@ -152,6 +152,10 @@ Object.defineProperty(globalThis, 'foodParticles', {
 
 let missileShakeTime = 0;
 let missileShakeIntensity = 0;
+let _snapFrames = 0;
+const _snapMax = 4;
+let _snapOldVis = null;
+let _snapOldCamX = 0, _snapOldCamY = 0;
 
 // ── Utilities ──
 // Convert grid coordinates to pixel coordinates (used by renderers and effects)
@@ -306,7 +310,7 @@ function startGame() {
     upg:{laserN:1,laserDmg:1,laserCD:1.0,pierce:false,slow:false,spd:0,quickTurn:false,
          ts_dur:0, ts_cd:0, ms_count:0, ms_pierce:false, ms_dmg:0,
          combo_ext:0, xp_boost:0},
-    alive:true,
+    alive:true, invulnUntil:0,
     // Skill state
     timeSlowCD: 0, timeSlowActive: false, timeSlowEnd: 0, timeSlowStart: 0, timeSlowSpeedMult: 1,
     missileCD: 0, missiles: [],
@@ -348,6 +352,7 @@ function startGame() {
 function _expandOverlayTransition(btn, startFn, opts) {
   Audio.init();
   Audio.resume();
+  Audio.sfxUiConfirm();
 
   const overlay = document.getElementById('launchTransition');
   if (!btn || !overlay) { startFn(); return; }
@@ -635,8 +640,8 @@ function loop(ts) {
     return;
   }
 
-  // Auto time-slow on mobile when CD is ready
-  if (typeof isMobile !== 'undefined' && isMobile && !gamePaused && player.alive && player.timeSlowCD <= 0 && !player.timeSlowActive) {
+  // Auto time-slow on phone-sized touch devices when CD is ready
+  if (typeof isMobile !== 'undefined' && isMobile && window.innerWidth < 1024 && !gamePaused && player.alive && player.timeSlowCD <= 0 && !player.timeSlowActive) {
     tryActivateTimeSlow();
   }
 
@@ -729,9 +734,11 @@ function _isLethalCell(nh) {
 }
 
 function _applyPlayerDamage(segIdx, penalty) {
+  if (player.invulnUntil > performance.now()) return false;
   if (player.body.length>1) {
     player.body.splice(segIdx,1);
     score=Math.max(0,score-penalty);
+    player.invulnUntil = performance.now() + INVULN_DURATION;
     return false;
   }
   deathTransition();
@@ -1521,7 +1528,20 @@ function applyDirection(dir) {
   // Early tick: if past 60% of interval, trigger tick now for snappy response
   const now = performance.now();
   if(tickT > 0.6 && player.alive && !gamePaused && now - lastTick > 60) {
+    // QuickTurn reverses the whole body — skip smoothing for that case
+    const willQuickTurn = rev && player.upg.quickTurn && player.body.length >= 2;
+    if(!willQuickTurn){
+      // Save full pre-snap visual state: every body segment + camera position
+      _snapOldVis = player.body.map((cur,i)=>{
+        const prv=(player.prev&&player.prev[i])||cur;
+        return {x:prv.x+(cur.x-prv.x)*tickT, y:prv.y+(cur.y-prv.y)*tickT};
+      });
+      const h0=player.body[0], p0=(player.prev&&player.prev[0])||h0;
+      _snapOldCamX=p0.x+(h0.x-p0.x)*tickT;
+      _snapOldCamY=p0.y+(h0.y-p0.y)*tickT;
+    }
     gameTick(); lastTick = now;
+    if(!willQuickTurn) _snapFrames=_snapMax;
   }
 }
 
@@ -1592,6 +1612,7 @@ function onKey(e) {
     if(go&&go.classList.contains('show')){
       e.preventDefault();
       const btn=document.getElementById('redeployBtn');
+      Audio.sfxUiConfirm();
       if(btn) launchRedeploy(btn);
       else { Audio.init(); Audio.resume(); if(gameMode==='3d'&&!DISABLE_3D)startGame3D();else if(gameMode==='2d')startGame(); }
       return;
@@ -1668,23 +1689,32 @@ function render() {
   // Body background
   ctx.fillStyle=T.boardBody; ctx.fillRect(0,0,W,H);
 
-  // ── Mobile camera: follow snake, zoom to keep visible area ~10x8 cells ──
-  let _inCam = false;
-  if (typeof isMobile !== 'undefined' && isMobile && player && player.alive) {
-    const head = player.body[0];
-    const [hpx, hpy] = gridToPixel(head.x, head.y, cS);
-    const viewW = 10 * cS, viewH = 8 * cS;
-    const camZoom = Math.min(3, Math.max(0.5, Math.min((W - 16) / viewW, (H - HUD_H - 16) / viewH)));
-    const camX = W / 2 - hpx * camZoom;
-    const camY = HUD_H + (H - HUD_H) / 2 - hpy * camZoom;
-    ctx.save();
-    ctx.translate(camX, camY);
-    ctx.scale(camZoom, camZoom);
-    _inCam = true;
-  }
-
   const ox=Math.floor((W-gCols*cS)/2);
   const oy=HUD_H+Math.floor((H-HUD_H-gRows*cS)/2);
+
+  // ── Camera: follow snake, zoom to keep visible area ~10x8 cells ──
+  let _inCam = false, _camX = 0, _camY = 0, _camZoom = 1;
+  if (player && player.alive) {
+    const hCur = player.body[0];
+    const hPrv = (player.prev && player.prev[0]) || hCur;
+    let visHX = hPrv.x + (hCur.x - hPrv.x) * tickT;
+    let visHY = hPrv.y + (hCur.y - hPrv.y) * tickT;
+    if(_snapFrames>0 && _snapOldCamX!==undefined){
+      const b=_snapFrames/_snapMax;
+      visHX+=(_snapOldCamX-visHX)*b;
+      visHY+=(_snapOldCamY-visHY)*b;
+    }
+    const hpx = ox + visHX * cS + cS / 2;
+    const hpy = oy + visHY * cS + cS / 2;
+    const viewW = (isMobile ? 10 : 16) * cS, viewH = (isMobile ? 8 : 12) * cS;
+    _camZoom = Math.min(3, Math.max(0.5, Math.min((W - 16) / viewW, (H - HUD_H - 16) / viewH)));
+    _camX = W / 2 - hpx * _camZoom;
+    _camY = HUD_H + (H - HUD_H) / 2 - hpy * _camZoom;
+    ctx.save();
+    ctx.translate(_camX, _camY);
+    ctx.scale(_camZoom, _camZoom);
+    _inCam = true;
+  }
 
   // ── Board background ──
   // Outer shadow/margin
@@ -1867,10 +1897,21 @@ function render() {
     const N=snake.body.length;
     const t = isPlayer ? tickT : enemyTickT;
 
+    let invulnAlpha=1;
+    if(isPlayer&&player.invulnUntil>performance.now()){
+      const remaining=player.invulnUntil-performance.now();
+      const freq=4+4*(remaining/INVULN_DURATION);
+      invulnAlpha=0.2+0.8*(Math.sin(performance.now()/1000*Math.PI*2*freq)*0.5+0.5);
+    }
+    const snapBlend=_snapFrames>0&&isPlayer&&_snapOldVis?_snapFrames/_snapMax:0;
     for(let i=N-1;i>=0;i--){
       const cur=snake.body[i], prv=snake.prev[i]||cur;
-      const ix=ox+cS*(prv.x+(cur.x-prv.x)*t)+cS/2;
-      const iy=oy+cS*(prv.y+(cur.y-prv.y)*t)+cS/2;
+      let ix=ox+cS*(prv.x+(cur.x-prv.x)*t)+cS/2;
+      let iy=oy+cS*(prv.y+(cur.y-prv.y)*t)+cS/2;
+      if(snapBlend>0&&i<_snapOldVis.length){
+        ix+=(ox+cS*_snapOldVis[i].x+cS/2-ix)*snapBlend;
+        iy+=(oy+cS*_snapOldVis[i].y+cS/2-iy)*snapBlend;
+      }
       const r=cS*0.42;
       const fade=Math.max(0.35,1-i/N*0.55);
 
@@ -1883,16 +1924,20 @@ function render() {
         border=i===0?T.enemyHeadBorder:T.enemyBodyBorder;
       }
 
-      // Slight opacity fade for tail
-      if(fade<1){ ctx.save(); ctx.globalAlpha=fade*0.85+0.15; }
+      const effAlpha=fade*invulnAlpha;
+      if(effAlpha<1){ ctx.save(); ctx.globalAlpha=effAlpha*0.85+0.15; }
       drawHex(ctx,ix,iy,r,fill,border);
-      if(fade<1) ctx.restore();
+      if(effAlpha<1) ctx.restore();
     }
 
     // Head detail: eyes
     const hCur=snake.body[0], hPrv=snake.prev[0]||hCur;
-    const hx=ox+cS*(hPrv.x+(hCur.x-hPrv.x)*t)+cS/2;
-    const hy=oy+cS*(hPrv.y+(hCur.y-hPrv.y)*t)+cS/2;
+    let hx=ox+cS*(hPrv.x+(hCur.x-hPrv.x)*t)+cS/2;
+    let hy=oy+cS*(hPrv.y+(hCur.y-hPrv.y)*t)+cS/2;
+    if(snapBlend>0&&_snapOldVis.length>0){
+      hx+=(ox+cS*_snapOldVis[0].x+cS/2-hx)*snapBlend;
+      hy+=(oy+cS*_snapOldVis[0].y+cS/2-hy)*snapBlend;
+    }
     const d=snake.dir||{x:1,y:0};
     const perp={x:d.y,y:-d.x};
     const eyeR=cS*0.075, eyeOff=cS*0.17, eyeFwd=cS*0.15;
@@ -1976,6 +2021,11 @@ function render() {
   // ── Edge Glow Cooldown UI ──
   renderEdgeGlow(ctx);
 
+  // ── Threat Ring Indicator ──
+  if (_inCam) {
+    drawThreatRing(ctx, player, enemies, food, ox, oy, cS, _camX, _camY, _camZoom, W, H, HUD_H, T);
+  }
+
   // ── Death transition overlay ──
   if(deathTime){
     const elapsed = performance.now() - deathTime;
@@ -2035,6 +2085,7 @@ function render() {
       }
     }
   }
+  if(_snapFrames>0) _snapFrames--;
 }
 
 // ═══ SKILL RENDER FUNCTIONS ═══
@@ -2229,6 +2280,167 @@ function renderIceShatter(ctx, progress, hx, hy, T) {
     }
     ctx.restore();
   }
+}
+
+// ── Threat Ring Indicator ──
+function drawThreatRing(ctx, player, enemies, food, ox, oy, cS, camX, camY, camZoom, W, H, hudH, T) {
+  if (!player || !player.alive) return;
+
+  const cx = W / 2;
+  const cy = hudH + (H - hudH) / 2;
+  const R = Math.min(160, (H - hudH) * 0.18) * ((typeof ringSize !== 'undefined' ? ringSize : 100) / 100);
+  const now = performance.now();
+  const flicker = Math.random() < 0.03 ? 0.5 : 1; // subtle VHS flicker
+
+  // ── Ring display settings ──
+  const ringAlpha = (typeof ringOpacity !== 'undefined' ? ringOpacity : 70) / 100;
+  const depthFactor = 1.6 - ((typeof ringDepth !== 'undefined' ? ringDepth : 50) / 100) * 1.2;
+  const ringR = Math.min(255, Math.round(255 * depthFactor));
+  const ringG = Math.min(255, Math.round(184 * depthFactor));
+  const ringB = Math.min(255, Math.round(48 * depthFactor));
+
+  ctx.save();
+  ctx.globalAlpha = ringAlpha;
+
+  // ── Tick marks (8 directions) ──
+  const lineW = Math.max(2.5, R * 0.025);
+  ctx.lineWidth = lineW;
+  ctx.lineCap = 'round';
+  ctx.strokeStyle = `rgba(${ringR},${ringG},${ringB},0.35)`;
+  ctx.shadowColor = `rgba(${ringR},${ringG},${ringB},${0.25 * flicker})`;
+  ctx.shadowBlur = R * 0.05;
+
+  for (let i = 0; i < 8; i++) {
+    const angle = (i / 8) * Math.PI * 2 - Math.PI / 2;
+    const isCardinal = (i % 2 === 0);
+    const tickLen = R * (isCardinal ? 0.12 : 0.08);
+    const cos = Math.cos(angle);
+    const sin = Math.sin(angle);
+    const innerR = R - tickLen;
+    const outerR = R + tickLen;
+
+    ctx.beginPath();
+    ctx.moveTo(cx + cos * innerR, cy + sin * innerR);
+    ctx.lineTo(cx + cos * outerR, cy + sin * outerR);
+    ctx.stroke();
+
+    // Small perpendicular tick at inner end for cardinal directions (cassette bracket motif)
+    if (isCardinal) {
+      const bw = R * 0.035;
+      ctx.beginPath();
+      ctx.moveTo(cx + cos * innerR - sin * bw, cy + sin * innerR + cos * bw);
+      ctx.lineTo(cx + cos * innerR + sin * bw, cy + sin * innerR - cos * bw);
+      ctx.stroke();
+    }
+  }
+
+  ctx.shadowBlur = 0;
+
+  // ── Player interpolated head world position ──
+  const hCur = player.body[0];
+  const hPrv = (player.prev && player.prev[0]) || hCur;
+  const headWX = hPrv.x + (hCur.x - hPrv.x) * tickT;
+  const headWY = hPrv.y + (hCur.y - hPrv.y) * tickT;
+
+  // ── Off-screen check ──
+  const margin = R * 0.12;
+  function isOffScreen(wx, wy) {
+    const sx = (ox + wx * cS + cS / 2) * camZoom + camX;
+    const sy = (oy + wy * cS + cS / 2) * camZoom + camY;
+    return sx < -margin || sx > W + margin || sy < hudH - margin || sy > H + margin;
+  }
+
+  // ── Collect off-screen target angles ──
+  const targets = [];
+  for (const enemy of enemies) {
+    if (!enemy.body || enemy.body.length === 0) continue;
+    const ex = enemy.body[0].x;
+    const ey = enemy.body[0].y;
+    if (isOffScreen(ex, ey)) {
+      const angle = Math.atan2(ey - headWY, ex - headWX);
+      targets.push({ angle, color: T.enemyHead || '#C8281E', type: 'enemy' });
+    }
+  }
+
+  if (food && isOffScreen(food.x, food.y)) {
+    const angle = Math.atan2(food.y - headWY, food.x - headWX);
+    targets.push({ angle, color: T.foodFill || '#E8640A', type: 'food' });
+  }
+
+  // Early exit if no off-screen targets (ring ticks still visible above)
+  if (targets.length === 0) { ctx.restore(); return; }
+
+  // ── Group overlapping angles & offset ──
+  targets.sort((a, b) => a.angle - b.angle);
+  const GROUP_RAD = 8 * Math.PI / 180;
+  const OFFSET_STEP = 7 * Math.PI / 180;
+
+  const grouped = [];
+  let group = [targets[0]];
+  for (let i = 1; i < targets.length; i++) {
+    if (targets[i].angle - targets[i - 1].angle < GROUP_RAD) {
+      group.push(targets[i]);
+    } else {
+      grouped.push(group);
+      group = [targets[i]];
+    }
+  }
+  grouped.push(group);
+
+  const finalTargets = [];
+  for (const grp of grouped) {
+    const n = grp.length;
+    for (let i = 0; i < n; i++) {
+      const offset = (i - (n - 1) / 2) * OFFSET_STEP;
+      finalTargets.push({ angle: grp[i].angle + offset, color: grp[i].color, type: grp[i].type });
+    }
+  }
+
+  // ── Draw arrows ──
+  ctx.lineWidth = Math.max(2.5, R * 0.025);
+  ctx.shadowBlur = R * 0.04;
+  ctx.lineJoin = 'round';
+
+  for (const t of finalTargets) {
+    const cos = Math.cos(t.angle);
+    const sin = Math.sin(t.angle);
+    const tipX = cx + cos * R;
+    const tipY = cy + sin * R;
+
+    ctx.fillStyle = t.color;
+    ctx.strokeStyle = t.color;
+    ctx.shadowColor = t.color;
+
+    if (t.type === 'enemy') {
+      const aSize = R * 0.09;
+      const aBase = R * 0.065;
+      const perpX = -sin;
+      const perpY = cos;
+      ctx.beginPath();
+      ctx.moveTo(tipX, tipY);
+      ctx.lineTo(tipX - cos * aSize + perpX * aBase, tipY - sin * aSize + perpY * aBase);
+      ctx.lineTo(tipX - cos * aSize - perpX * aBase, tipY - sin * aSize - perpY * aBase);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+    } else {
+      const dOuter = R * 0.09;
+      const dInner = R * 0.05;
+      const dWidth = R * 0.04;
+      const perpX = -sin;
+      const perpY = cos;
+      ctx.beginPath();
+      ctx.moveTo(tipX, tipY);
+      ctx.lineTo(tipX - cos * dInner + perpX * dWidth, tipY - sin * dInner + perpY * dWidth);
+      ctx.lineTo(tipX - cos * (dOuter + dInner), tipY - sin * (dOuter + dInner));
+      ctx.lineTo(tipX - cos * dInner - perpX * dWidth, tipY - sin * dInner - perpY * dWidth);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+    }
+  }
+
+  ctx.restore();
 }
 
 // ── Edge Glow Cooldown UI ──
